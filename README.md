@@ -58,6 +58,22 @@ Bring the stack up:
 ./scripts/up.sh
 ```
 
+One-click macOS launcher from Terminal:
+
+```bash
+./scripts/launch-pob.sh
+```
+
+It brings the runner up, waits until `pob-flatpak-rdp` is `healthy`, then opens `Windows App` with a generated `.rdp` file for `localhost:3389`.
+
+Install a double-clickable Desktop shortcut:
+
+```bash
+./scripts/install-macos-launcher.sh
+```
+
+That creates `~/Desktop/POB.command`.
+
 Reissue the local RDP certificate if needed:
 
 ```bash
