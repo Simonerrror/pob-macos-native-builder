@@ -1,0 +1,153 @@
+# Path of Building Local OrbStack Wrapper
+
+Thin local wrapper around the official `Path of Building Community` portable release. It downloads the upstream release, runs it under `Wine` in Docker/OrbStack, and exposes the GUI through `xrdp` for `Windows App` on macOS.
+
+## What this repo owns
+
+- `scripts/sync-release.sh`: download and extract the official PoB portable release into repo-local cache
+- `docker-compose.yml` + `Dockerfile`: build and run the `Wine` + `xrdp` stack
+- RDP entrypoint: `localhost:3389`
+- Persistent user data on macOS:
+  - builds: `/Users/sergio/Documents/30_HOBBY_AI/POB-data/builds`
+  - wine prefix: `/Users/sergio/Documents/30_HOBBY_AI/POB-data/wine-prefix`
+
+## What this repo does not own
+
+- No Windows VM
+- No Windows containers
+- No flatpak runtime
+- No fork of PoB or Linux-native runtime replacement
+
+## Prerequisites
+
+- OrbStack or another Docker engine available on macOS
+- Enough disk space for:
+  - PoB portable archive: about 500 MB
+  - extracted runtime: about 500 MB
+  - Docker image layers and Wine prefix
+
+## First run
+
+```bash
+./scripts/sync-release.sh latest
+./scripts/ensure-base-image.sh
+./scripts/up.sh
+```
+
+Open `Windows App` on macOS and add a new PC:
+
+- address: `localhost:3389`
+- username: `root`
+- password: value of `POB_RDP_PASSWORD`
+
+## Release Prefetch Automation
+
+You can install a local `launchd` job that checks for the latest official PoB release after working hours, downloads it into cache, and extracts it without switching the active runtime.
+
+Install the job:
+
+```bash
+./scripts/install-release-prefetch-agent.sh
+```
+
+Default schedule is daily at `18:30` local time. Override it before install if needed:
+
+```bash
+POB_PREFETCH_HOUR=19 POB_PREFETCH_MINUTE=15 ./scripts/install-release-prefetch-agent.sh
+```
+
+Manual prefetch run:
+
+```bash
+./scripts/prefetch-latest.sh
+```
+
+Remove the job:
+
+```bash
+./scripts/uninstall-release-prefetch-agent.sh
+```
+
+## Operations
+
+Download a specific release:
+
+```bash
+./scripts/sync-release.sh v2.63.0
+```
+
+Prefetch the latest release without making it active:
+
+```bash
+./scripts/sync-release.sh --prefetch latest
+```
+
+Bring the stack up:
+
+```bash
+./scripts/up.sh
+```
+
+Populate or refresh the local Docker base image cache:
+
+```bash
+./scripts/ensure-base-image.sh
+```
+
+Stop the stack:
+
+```bash
+./scripts/down.sh
+```
+
+Tail logs:
+
+```bash
+./scripts/logs.sh
+```
+
+You can also use plain Docker Compose directly:
+
+```bash
+docker --context orbstack compose up -d
+docker --context orbstack compose down
+docker --context orbstack compose logs -f
+```
+
+## Storage layout
+
+- Repo-local release cache:
+  - `.cache/downloads/<tag>/PathOfBuildingCommunity-Portable.zip`
+  - `.cache/runtime/<tag>/`
+  - `.cache/runtime/current -> .cache/runtime/<tag>`
+- Repo-local Docker cache:
+  - `.cache/images/debian-bookworm-slim.tar`
+- Persistent host storage:
+  - `/Users/sergio/Documents/30_HOBBY_AI/POB-data/builds`
+  - `/Users/sergio/Documents/30_HOBBY_AI/POB-data/wine-prefix`
+
+Inside the container, the build directory is mounted at `/data/builds`. The bootstrap script links that directory into the Wine user documents path so saved builds survive container recreation.
+
+## Configuration
+
+Optional overrides can be provided via environment variables or a local `.env` file:
+
+```bash
+POB_DOCKER_CONTEXT=orbstack
+POB_RDP_PASSWORD=changeme
+POB_RDP_PORT=3389
+POB_BUILDS_HOST_DIR=/Users/sergio/Documents/30_HOBBY_AI/POB-data/builds
+POB_WINEPREFIX_HOST_DIR=/Users/sergio/Documents/30_HOBBY_AI/POB-data/wine-prefix
+```
+
+See [.env.example](/Users/sergio/Documents/30_HOBBY_AI/POB/.env.example).
+
+## Notes
+
+- `docker-compose.yml` pins the container to `linux/amd64`. On Apple Silicon, OrbStack emulates it.
+- `scripts/up.sh`, `scripts/down.sh`, and `scripts/logs.sh` prefer `POB_DOCKER_CONTEXT`, then auto-detect an `orbstack` Docker context if it exists.
+- `scripts/ensure-base-image.sh` caches `debian:bookworm-slim` under `.cache/images/` and loads it locally before pulling from the network.
+- `sync-release.sh` verifies the release archive against the GitHub API `sha256` digest when available.
+- `sync-release.sh --prefetch` downloads and extracts a newer release into cache without changing `.cache/runtime/current`.
+- The launchd job only prefetches releases; activation still happens manually when you run `./scripts/sync-release.sh latest`.
+- The GUI transport is direct `xrdp`; browser access is intentionally removed.

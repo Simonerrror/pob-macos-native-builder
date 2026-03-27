@@ -1,0 +1,28 @@
+services:
+  pob:
+    container_name: pob-rdp
+    build:
+      context: .
+      dockerfile: Dockerfile
+    platform: linux/amd64
+    restart: unless-stopped
+    shm_size: "1gb"
+    environment:
+      BUILD_DIR: /data/builds
+      POB_RDP_PASSWORD: ${POB_RDP_PASSWORD:-changeme}
+      POB_RDP_PORT: ${POB_RDP_PORT:-3389}
+      WINEPREFIX: /wine-prefix
+      WINEDEBUG: -all
+    ports:
+      - "${POB_RDP_PORT:-3389}:3389"
+    volumes:
+      - type: bind
+        source: ./.cache/runtime/current
+        target: /runtime
+        read_only: true
+      - type: bind
+        source: ${POB_BUILDS_HOST_DIR:-/Users/sergio/Documents/30_HOBBY_AI/POB-data/builds}
+        target: /data/builds
+      - type: bind
+        source: ${POB_WINEPREFIX_HOST_DIR:-/Users/sergio/Documents/30_HOBBY_AI/POB-data/wine-prefix}
+        target: /wine-prefix

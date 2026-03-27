@@ -1,0 +1,9 @@
+.DS_Store
+.env
+.cache/downloads/
+.cache/images/*
+.cache/runtime/*
+!.cache/runtime/.gitkeep
+!.cache/images/.gitkeep
+.state/*
+!.state/.gitkeep
