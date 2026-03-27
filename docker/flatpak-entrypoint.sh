@@ -90,7 +90,6 @@ EOF
 }
 
 ensure_flatpak_remotes() {
-  flatpak remote-add --system --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
   flatpak remote-add --system --if-not-exists --no-gpg-verify "$POB_FLATPAK_LOCAL_REMOTE" "file://${POB_FLATPAK_REPO_DIR}"
 }
 

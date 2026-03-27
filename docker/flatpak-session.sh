@@ -36,18 +36,16 @@ link_build_dir() {
 link_build_dir "${APP_VAR_DIR}/data"
 link_build_dir "${APP_VAR_DIR}/config"
 
-if command -v dbus-launch >/dev/null 2>&1; then
-  eval "$(dbus-launch --sh-syntax)"
-  export DBUS_SESSION_BUS_ADDRESS
-  trap 'kill "${DBUS_SESSION_BUS_PID:-0}" 2>/dev/null || true' EXIT
-fi
-
-fluxbox -log "$LOG_DIR/fluxbox.log" >>"$LOG_DIR/fluxbox.stdout" 2>&1 &
-FLUXBOX_PID=$!
-
-# Let the WM take ownership before the app starts.
-sleep 1
-
-flatpak run "$APP_ID" "$GAME_TARGET" >>"$LOG_DIR/app.log" 2>&1 &
-
-wait "$FLUXBOX_PID"
+dbus-run-session -- bash -lc '
+  set -euo pipefail
+  export HOME="'"$HOME"'"
+  export LANG="'"${LANG:-C.UTF-8}"'"
+  export LC_ALL="'"${LC_ALL:-C.UTF-8}"'"
+  export XDG_RUNTIME_DIR="'"$XDG_RUNTIME_DIR"'"
+  export XDG_SESSION_TYPE="'"${XDG_SESSION_TYPE:-x11}"'"
+  fluxbox -log "'"$LOG_DIR"'/fluxbox.log" >>"'"$LOG_DIR"'/fluxbox.stdout" 2>&1 &
+  FLUXBOX_PID=$!
+  sleep 1
+  flatpak run "'"$APP_ID"'" "'"$GAME_TARGET"'" >>"'"$LOG_DIR"'/app.log" 2>&1 &
+  wait "$FLUXBOX_PID"
+'
