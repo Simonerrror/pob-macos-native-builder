@@ -15,11 +15,11 @@ ensure_flatpak_dirs
 ensure_manifest_exists
 download_cargo_sources "${FLATPAK_UPSTREAM_SNAPSHOT}" "$refresh"
 stage_manifest_cargo_sources
-build_flatpak_image
+build_flatpak_builder_image
 
 runtime_version="$(manifest_runtime_version)"
 
-run_in_flatpak_image "
+run_in_flatpak_builder_image "
   set -euo pipefail
   flatpak remote-add --system --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
   flatpak install -y --noninteractive flathub \

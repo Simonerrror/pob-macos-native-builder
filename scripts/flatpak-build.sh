@@ -7,7 +7,7 @@ ensure_flatpak_dirs
 ensure_manifest_exists
 "${REPO_ROOT}/scripts/flatpak-bootstrap.sh"
 
-run_in_flatpak_image "
+run_in_flatpak_builder_image "
   set -euo pipefail
   flatpak-builder \
     --disable-rofiles-fuse \

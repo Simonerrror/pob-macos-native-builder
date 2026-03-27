@@ -16,15 +16,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         bash \
         bubblewrap \
         ca-certificates \
-        curl \
         dbus \
         dbus-x11 \
-        elfutils \
         flatpak \
-        flatpak-builder \
         fluxbox \
-        git \
-        net-tools \
         procps \
         tigervnc-standalone-server \
         tini \
@@ -44,6 +39,6 @@ RUN chmod +x /usr/local/bin/pob-flatpak-entrypoint /usr/local/bin/pob-flatpak-se
 EXPOSE 3389
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-  CMD netstat -ltn | grep -q ':3389 ' || exit 1
+  CMD bash -lc 'exec 3<>/dev/tcp/127.0.0.1/3389'
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/pob-flatpak-entrypoint"]

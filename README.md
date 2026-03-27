@@ -10,7 +10,8 @@ The GUI is exposed through `xrdp` for `Windows App` on macOS.
 
 ## What this repo owns
 
-- `Dockerfile.flatpak` + `docker-compose.flatpak.yml`: build and run the Flatpak + `xrdp` stack
+- `Dockerfile.flatpak.builder`: isolated Flatpak builder image
+- `Dockerfile.flatpak.runner` + `docker-compose.flatpak.yml`: lean Flatpak runtime + `xrdp` stack
 - `flatpak/community.pathofbuilding.PathOfBuilding.yml`: local Flatpak manifest used for build/export
 - `scripts/flatpak-sync-upstream.sh`: pull the latest upstream Flathub manifest and regenerate the local manifest
 - `scripts/flatpak-bootstrap.sh`: install Freedesktop runtime and SDK into repo-local Flatpak state
@@ -66,10 +67,16 @@ Tail logs:
 ./scripts/logs.sh
 ```
 
-Open a debug shell in the helper image:
+Open a debug shell in the builder image:
 
 ```bash
 ./scripts/flatpak-shell.sh
+```
+
+Open a debug shell in the runtime image:
+
+```bash
+./scripts/flatpak-shell.sh runner
 ```
 
 ## Upstream Patch Flow
@@ -157,7 +164,8 @@ POB_DOCKER_CONTEXT=orbstack
 POB_RDP_PASSWORD=changeme
 POB_RDP_PORT=3389
 POB_RDP_KEYLAYOUT=0x00000409
-POB_FLATPAK_IMAGE=pob-flatpak:local
+POB_FLATPAK_BUILDER_IMAGE=pob-flatpak-builder:local
+POB_FLATPAK_RUNNER_IMAGE=pob-flatpak-runner:local
 POB_FLATPAK_RDP_PORT=3389
 POB_FLATPAK_APP_ID=community.pathofbuilding.PathOfBuilding
 POB_FLATPAK_GAME=poe1
@@ -173,8 +181,8 @@ See [.env.example](/Users/sergio/Documents/30_HOBBY_AI/POB/.env.example).
 
 ## Notes
 
-- `docker-compose.flatpak.yml` uses a privileged helper container because local Flatpak build/run inside Docker needs `bubblewrap` and related sandbox features.
-- `Dockerfile.flatpak` uses BuildKit cache mounts for `apt`; repeated helper-image rebuilds should be cheaper when you avoid `--no-cache`.
+- `docker-compose.flatpak.yml` still uses a privileged runtime container because local Flatpak run inside Docker needs `bubblewrap` and related sandbox features.
+- The repo now splits Flatpak concerns into two images: a heavier builder and a leaner runtime. Repeated rebuilds should be cheaper when you avoid `--no-cache`.
 - `flatpak-sync-upstream.sh` regenerates the local manifest from the latest upstream Flathub manifest and removes the `extrafiles` packaging block that is not needed for this local runner.
 - `scripts/up.sh`, `scripts/down.sh`, and `scripts/logs.sh` now target the Flatpak stack only.
 - `flatpak-run.sh` and `up.sh` both default to `localhost:3389`; do not run another RDP stack on the same port at the same time.

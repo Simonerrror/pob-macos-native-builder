@@ -15,7 +15,8 @@ APP_STATE_ROOT="${REPO_ROOT}/.state"
 UPSTREAM_HEAD_FILE="${APP_STATE_ROOT}/flatpak-upstream-head"
 LAST_REFRESH_FILE="${APP_STATE_ROOT}/flatpak-upstream-last-refresh"
 DOCKER_CONTEXT_ARG=()
-FLATPAK_IMAGE="${POB_FLATPAK_IMAGE:-pob-flatpak:local}"
+FLATPAK_BUILDER_IMAGE="${POB_FLATPAK_BUILDER_IMAGE:-pob-flatpak-builder:local}"
+FLATPAK_RUNNER_IMAGE="${POB_FLATPAK_RUNNER_IMAGE:-pob-flatpak-runner:local}"
 FLATPAK_APP_ID="${POB_FLATPAK_APP_ID:-community.pathofbuilding.PathOfBuilding}"
 FLATPAK_REMOTE="${POB_FLATPAK_LOCAL_REMOTE:-localrepo}"
 FLATPAK_GAME="${POB_FLATPAK_GAME:-poe1}"
@@ -85,12 +86,17 @@ stage_manifest_cargo_sources() {
   cp "$FLATPAK_CARGO_SOURCES_PATH" "$FLATPAK_MANIFEST_CARGO_SOURCES_PATH"
 }
 
-build_flatpak_image() {
-  log "Building flatpak helper image: ${FLATPAK_IMAGE}"
-  docker_cmd build -f "${REPO_ROOT}/Dockerfile.flatpak" -t "$FLATPAK_IMAGE" "$REPO_ROOT"
+build_flatpak_builder_image() {
+  log "Building flatpak builder image: ${FLATPAK_BUILDER_IMAGE}"
+  docker_cmd build -f "${REPO_ROOT}/Dockerfile.flatpak.builder" -t "$FLATPAK_BUILDER_IMAGE" "$REPO_ROOT"
 }
 
-run_in_flatpak_image() {
+build_flatpak_runner_image() {
+  log "Building flatpak runner image: ${FLATPAK_RUNNER_IMAGE}"
+  docker_cmd build -f "${REPO_ROOT}/Dockerfile.flatpak.runner" -t "$FLATPAK_RUNNER_IMAGE" "$REPO_ROOT"
+}
+
+run_in_flatpak_builder_image() {
   local cmd="$1"
   docker_cmd run --rm --privileged \
     --entrypoint bash \
@@ -99,6 +105,6 @@ run_in_flatpak_image() {
     -v "${HOME_STATE_DIR}:/root" \
     -v "${POB_BUILDS_HOST_DIR:-$DEFAULT_BUILD_DIR}:/data/builds" \
     -w /workspace \
-    "$FLATPAK_IMAGE" \
+    "$FLATPAK_BUILDER_IMAGE" \
     -lc "$cmd"
 }
