@@ -16,7 +16,9 @@ esac
 ensure_flatpak_dirs
 if [[ "$mode" == "builder" ]]; then
   build_flatpak_builder_image
-  exec docker "${DOCKER_CONTEXT_ARG[@]}" run --rm -it --privileged \
+  exec docker "${DOCKER_CONTEXT_ARG[@]}" run --rm -it \
+    --cap-add SYS_ADMIN \
+    --security-opt seccomp=unconfined \
     --entrypoint bash \
     -v "${REPO_ROOT}:/workspace" \
     -v "${SYSTEM_STATE_DIR}:/var/lib/flatpak" \
@@ -27,7 +29,9 @@ if [[ "$mode" == "builder" ]]; then
 fi
 
 build_flatpak_runner_image
-exec docker "${DOCKER_CONTEXT_ARG[@]}" run --rm -it --privileged \
+exec docker "${DOCKER_CONTEXT_ARG[@]}" run --rm -it \
+  --cap-add SYS_ADMIN \
+  --security-opt seccomp=unconfined \
   --entrypoint bash \
   -v "${REPO_DIR}:/repo:ro" \
   -v "${SYSTEM_STATE_DIR}:/var/lib/flatpak" \

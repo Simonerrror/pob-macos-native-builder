@@ -98,7 +98,9 @@ build_flatpak_runner_image() {
 
 run_in_flatpak_builder_image() {
   local cmd="$1"
-  docker_cmd run --rm --privileged \
+  docker_cmd run --rm \
+    --cap-add SYS_ADMIN \
+    --security-opt seccomp=unconfined \
     --entrypoint bash \
     -v "${REPO_ROOT}:/workspace" \
     -v "${SYSTEM_STATE_DIR}:/var/lib/flatpak" \

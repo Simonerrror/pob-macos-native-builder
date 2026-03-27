@@ -181,7 +181,7 @@ See [.env.example](/Users/sergio/Documents/30_HOBBY_AI/POB/.env.example).
 
 ## Notes
 
-- `docker-compose.flatpak.yml` still uses a privileged runtime container because local Flatpak run inside Docker needs `bubblewrap` and related sandbox features.
+- `docker-compose.flatpak.yml` no longer uses full `privileged`; the runtime now runs with `SYS_ADMIN` plus `seccomp=unconfined`, which is enough for local `bubblewrap`-based Flatpak execution in this setup.
 - The repo now splits Flatpak concerns into two images: a heavier builder and a leaner runtime. Repeated rebuilds should be cheaper when you avoid `--no-cache`.
 - `flatpak-sync-upstream.sh` regenerates the local manifest from the latest upstream Flathub manifest and removes the `extrafiles` packaging block that is not needed for this local runner.
 - `scripts/up.sh`, `scripts/down.sh`, and `scripts/logs.sh` now target the Flatpak stack only.
