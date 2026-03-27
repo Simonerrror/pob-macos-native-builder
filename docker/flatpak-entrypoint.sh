@@ -8,6 +8,8 @@ POB_RDP_KEYLAYOUT="${POB_RDP_KEYLAYOUT:-0x00000409}"
 POB_FLATPAK_APP_ID="${POB_FLATPAK_APP_ID:-community.pathofbuilding.PathOfBuilding}"
 POB_FLATPAK_LOCAL_REMOTE="${POB_FLATPAK_LOCAL_REMOTE:-localrepo}"
 POB_FLATPAK_REPO_DIR="${POB_FLATPAK_REPO_DIR:-/repo}"
+POB_RDP_CERT_FILE="${POB_RDP_CERT_FILE:-/tls/server.crt}"
+POB_RDP_KEY_FILE="${POB_RDP_KEY_FILE:-/tls/server.key}"
 LOG_DIR="/var/log/pob-flatpak"
 XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/0}"
 
@@ -53,11 +55,13 @@ prepare_runtime_dirs() {
 }
 
 configure_xrdp() {
-  awk -v port="$POB_RDP_PORT" -v keylayout="$POB_RDP_KEYLAYOUT" '
+  awk -v port="$POB_RDP_PORT" -v keylayout="$POB_RDP_KEYLAYOUT" -v cert="$POB_RDP_CERT_FILE" -v key="$POB_RDP_KEY_FILE" '
     /^\[Globals\]/ { in_globals=1; print; next }
     /^\[/ && $0 != "[Globals]" { in_globals=0; print; next }
     in_globals && /^port=/ { print "port=" port; next }
     in_globals && /^autorun=/ { print "autorun=Xvnc"; next }
+    in_globals && /^certificate=/ { print "certificate=" cert; next }
+    in_globals && /^key_file=/ { print "key_file=" key; next }
     in_globals && /^#xrdp.override_keyboard_type=/ { print "xrdp.override_keyboard_type=0x04"; next }
     in_globals && /^#xrdp.override_keyboard_subtype=/ { print "xrdp.override_keyboard_subtype=0x01"; next }
     in_globals && /^#xrdp.override_keylayout=/ { print "xrdp.override_keylayout=" keylayout; next }
@@ -106,6 +110,10 @@ start_sesman() {
 
 require_dir "$BUILD_DIR" "Mounted build directory"
 require_dir "$POB_FLATPAK_REPO_DIR" "Mounted flatpak repo"
+if [[ ! -f "$POB_RDP_CERT_FILE" || ! -f "$POB_RDP_KEY_FILE" ]]; then
+  log "RDP TLS files are missing: cert=$POB_RDP_CERT_FILE key=$POB_RDP_KEY_FILE"
+  exit 1
+fi
 
 prepare_runtime_dirs
 configure_root_password

@@ -21,4 +21,5 @@ services:
       - ./.cache/flatpak/repo:/repo:ro
       - ./.cache/flatpak/state/system:/var/lib/flatpak
       - ./.cache/flatpak/state/home:/root
+      - ./.state/rdp-tls:/tls:ro
       - ${POB_BUILDS_HOST_DIR:-/Users/sergio/Documents/30_HOBBY_AI/POB-data/builds}:/data/builds

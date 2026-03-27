@@ -34,6 +34,7 @@ The GUI is exposed through `xrdp` for `Windows App` on macOS.
 ## First Run
 
 ```bash
+./scripts/setup-rdp-tls.sh
 ./scripts/flatpak-sync-upstream.sh latest
 ./scripts/flatpak-bootstrap.sh
 ./scripts/flatpak-build.sh
@@ -47,12 +48,20 @@ Open `Windows App` on macOS and add a new PC:
 - password: value of `POB_RDP_PASSWORD`
 - keep the macOS input source on `ABC`/English unless you explicitly change `POB_RDP_KEYLAYOUT`
 
+`./scripts/setup-rdp-tls.sh` generates a stable local CA plus a `localhost` server certificate, stores them in `.state/rdp-tls/`, and imports the CA into your macOS login keychain so `Windows App` stops showing the untrusted-certificate dialog.
+
 ## Daily Use
 
 Bring the stack up:
 
 ```bash
 ./scripts/up.sh
+```
+
+Reissue the local RDP certificate if needed:
+
+```bash
+./scripts/setup-rdp-tls.sh --force
 ```
 
 Stop it:
