@@ -9,6 +9,7 @@ build-options:
 command: rusty-path-of-building
 finish-args:
   - --socket=fallback-x11
+  - --socket=wayland
   - --share=ipc
   - --share=network
   - --device=dri
@@ -29,17 +30,23 @@ modules:
   - name: rusty-path-of-building
     buildsystem: simple
     build-commands:
-      - install -Dm0644 cargo/config .cargo/config.toml
-      - cd lua/libs/lzip; make DESTDIR=/app LUA_CMOD=/lib/lua/5.1 LUA_IMPL=luajit install
+      - mkdir -p .cargo && if [ -f cargo/config ]; then install -Dm0644 cargo/config .cargo/config.toml; elif [ -f cargo/config.toml ]; then install -Dm0644 cargo/config.toml .cargo/config.toml; fi
+      - cd lua/libs/lzip; make DESTDIR=/app LUA_CMOD=/lib/lua/5.1 LUA_IMPL=luajit
+        install
       - cargo --offline fetch --manifest-path Cargo.toml --verbose
-      - cargo --offline build --release --locked
+      - cargo --offline build --release
       - install -Dm755 target/release/rusty-path-of-building /app/bin/rusty-path-of-building
     sources:
       - type: git
         url: https://github.com/meehl/rusty-path-of-building.git
         commit: c8bda4b76f16f5a3c7fdf4cb0e6da6392016a966
+        x-checker-data:
+          type: git
+          tag-pattern: ^v([\d.]+)$
+          is-main-source: true
+          version-scheme: semantic
         tag: v0.2.16
-      - ../.cache/flatpak/upstream/cargo-sources.json
+      - cargo-sources.json
 
   - name: luarocks
     buildsystem: simple
@@ -82,8 +89,10 @@ modules:
   - name: Lua-cURLv3
     buildsystem: simple
     build-commands:
-      - make DESTDIR=/app LUA_CMOD=/lib/lua/5.1 LUA_IMPL=luajit -j$FLATPAK_BUILDER_N_JOBS install
+      - make DESTDIR=/app LUA_CMOD=/lib/lua/5.1 LUA_IMPL=luajit -j$FLATPAK_BUILDER_N_JOBS
+        install
     sources:
       - type: archive
         url: https://github.com/Lua-cURL/Lua-cURLv3/archive/refs/tags/v0.3.13.tar.gz
         sha256: aba40511a7cac4422c0238d1db42b2124ea5a727b0745f7f434f3dc119cbb2db
+

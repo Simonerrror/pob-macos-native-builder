@@ -6,20 +6,25 @@ CACHE_ROOT="${REPO_ROOT}/.cache/flatpak"
 UPSTREAM_DIR="${CACHE_ROOT}/upstream"
 BUILD_DIR="${CACHE_ROOT}/build/app"
 REPO_DIR="${CACHE_ROOT}/repo"
-STATE_ROOT="${CACHE_ROOT}/state"
-SYSTEM_STATE_DIR="${STATE_ROOT}/system"
-HOME_STATE_DIR="${STATE_ROOT}/home"
-BUILDER_STATE_DIR="${STATE_ROOT}/builder"
-LOG_DIR="${STATE_ROOT}/logs"
+FLATPAK_STATE_ROOT="${CACHE_ROOT}/state"
+SYSTEM_STATE_DIR="${FLATPAK_STATE_ROOT}/system"
+HOME_STATE_DIR="${FLATPAK_STATE_ROOT}/home"
+BUILDER_STATE_DIR="${FLATPAK_STATE_ROOT}/builder"
+LOG_DIR="${FLATPAK_STATE_ROOT}/logs"
+APP_STATE_ROOT="${REPO_ROOT}/.state"
+UPSTREAM_HEAD_FILE="${APP_STATE_ROOT}/flatpak-upstream-head"
+LAST_REFRESH_FILE="${APP_STATE_ROOT}/flatpak-upstream-last-refresh"
 DOCKER_CONTEXT_ARG=()
 FLATPAK_IMAGE="${POB_FLATPAK_IMAGE:-pob-flatpak:local}"
 FLATPAK_APP_ID="${POB_FLATPAK_APP_ID:-community.pathofbuilding.PathOfBuilding}"
 FLATPAK_REMOTE="${POB_FLATPAK_LOCAL_REMOTE:-localrepo}"
-FLATPAK_RUNTIME_VERSION="${POB_FLATPAK_RUNTIME_VERSION:-25.08}"
+FLATPAK_GAME="${POB_FLATPAK_GAME:-poe1}"
 FLATPAK_UPSTREAM_SNAPSHOT="${POB_FLATPAK_UPSTREAM_SNAPSHOT:-aa186a1606107b3f9035ea03d72c79e8ea24c885}"
 FLATPAK_CARGO_SOURCES_URL="https://raw.githubusercontent.com/flathub/community.pathofbuilding.PathOfBuilding/${FLATPAK_UPSTREAM_SNAPSHOT}/cargo-sources.json"
 FLATPAK_CARGO_SOURCES_PATH="${UPSTREAM_DIR}/cargo-sources.json"
+FLATPAK_UPSTREAM_MANIFEST_PATH="${UPSTREAM_DIR}/community.pathofbuilding.PathOfBuilding.yml"
 FLATPAK_MANIFEST="${REPO_ROOT}/flatpak/community.pathofbuilding.PathOfBuilding.yml"
+FLATPAK_MANIFEST_CARGO_SOURCES_PATH="${REPO_ROOT}/flatpak/cargo-sources.json"
 DEFAULT_BUILD_DIR="/Users/sergio/Documents/30_HOBBY_AI/POB-data/builds"
 
 if [[ -n "${POB_DOCKER_CONTEXT:-}" ]]; then
@@ -37,7 +42,7 @@ docker_cmd() {
 }
 
 ensure_flatpak_dirs() {
-  mkdir -p "$UPSTREAM_DIR" "$BUILD_DIR" "$REPO_DIR" "$SYSTEM_STATE_DIR" "$HOME_STATE_DIR" "$BUILDER_STATE_DIR" "$LOG_DIR"
+  mkdir -p "$UPSTREAM_DIR" "$BUILD_DIR" "$REPO_DIR" "$SYSTEM_STATE_DIR" "$HOME_STATE_DIR" "$BUILDER_STATE_DIR" "$LOG_DIR" "$APP_STATE_ROOT"
   mkdir -p "${POB_BUILDS_HOST_DIR:-$DEFAULT_BUILD_DIR}"
 }
 
@@ -48,12 +53,36 @@ ensure_manifest_exists() {
   fi
 }
 
-download_cargo_sources() {
-  local refresh="${1:-}"
-  if [[ "$refresh" == "refresh" || ! -s "$FLATPAK_CARGO_SOURCES_PATH" ]]; then
-    log "Downloading cargo-sources.json from snapshot ${FLATPAK_UPSTREAM_SNAPSHOT}"
-    curl -fL --retry 3 --retry-delay 2 -o "$FLATPAK_CARGO_SOURCES_PATH" "$FLATPAK_CARGO_SOURCES_URL"
+manifest_runtime_version() {
+  local runtime_version
+  runtime_version="$(sed -nE "s/^runtime-version: '?([^']+)'?$/\\1/p" "$FLATPAK_MANIFEST" | head -n1)"
+  if [[ -n "$runtime_version" ]]; then
+    printf '%s\n' "$runtime_version"
+  else
+    printf '%s\n' "${POB_FLATPAK_RUNTIME_VERSION:-25.08}"
   fi
+}
+
+latest_upstream_snapshot() {
+  git ls-remote https://github.com/flathub/community.pathofbuilding.PathOfBuilding.git HEAD | awk '{print $1}'
+}
+
+download_cargo_sources() {
+  local snapshot="${1:-$FLATPAK_UPSTREAM_SNAPSHOT}"
+  local refresh="${2:-}"
+  local url="https://raw.githubusercontent.com/flathub/community.pathofbuilding.PathOfBuilding/${snapshot}/cargo-sources.json"
+  if [[ "$refresh" == "refresh" || ! -s "$FLATPAK_CARGO_SOURCES_PATH" ]]; then
+    log "Downloading cargo-sources.json from snapshot ${snapshot}"
+    curl -fL --retry 3 --retry-delay 2 -o "$FLATPAK_CARGO_SOURCES_PATH" "$url"
+  fi
+}
+
+stage_manifest_cargo_sources() {
+  if [[ ! -s "$FLATPAK_CARGO_SOURCES_PATH" ]]; then
+    printf 'Missing cached cargo-sources file at %s\n' "$FLATPAK_CARGO_SOURCES_PATH" >&2
+    exit 1
+  fi
+  cp "$FLATPAK_CARGO_SOURCES_PATH" "$FLATPAK_MANIFEST_CARGO_SOURCES_PATH"
 }
 
 build_flatpak_image() {

@@ -1,78 +1,41 @@
 # Path of Building Local OrbStack Wrapper
 
-Local wrapper repo for two PoB runtime paths on OrbStack:
+Local flatpak-native PoB runner for OrbStack on macOS.
+
+The repo now owns one runtime path only:
 
 - `flatpak-native`: Linux-native build based on the current Flathub approach with `rusty-path-of-building`
-- `wine-fallback`: official `Path of Building Community` portable release under `Wine`
 
-Both paths expose the GUI through `xrdp` for `Windows App` on macOS.
+The GUI is exposed through `xrdp` for `Windows App` on macOS.
 
 ## What this repo owns
 
-- `scripts/sync-release.sh`: download and extract the official PoB portable release into repo-local cache
-- `docker-compose.yml` + `Dockerfile`: build and run the `Wine` + `xrdp` stack
-- `docker-compose.flatpak.yml` + `Dockerfile.flatpak`: build and run the `Flatpak` + `xrdp` stack
-- `flatpak/community.pathofbuilding.PathOfBuilding.yml`: local Flatpak manifest fork for the native Linux path
+- `Dockerfile.flatpak` + `docker-compose.flatpak.yml`: build and run the Flatpak + `xrdp` stack
+- `flatpak/community.pathofbuilding.PathOfBuilding.yml`: local Flatpak manifest used for build/export
+- `scripts/flatpak-sync-upstream.sh`: pull the latest upstream Flathub manifest and regenerate the local manifest
+- `scripts/flatpak-bootstrap.sh`: install Freedesktop runtime and SDK into repo-local Flatpak state
+- `scripts/flatpak-build.sh`: build and export the local Flatpak repo
+- `scripts/flatpak-run.sh`: recreate the runtime container
+- `scripts/flatpak-refresh.sh`: weekly-style sync + rebuild + optional runner restart
+- `scripts/install-flatpak-refresh-agent.sh`: install the local `launchd` rebuild job
+- `scripts/uninstall-flatpak-refresh-agent.sh`: remove that `launchd` job
 - RDP entrypoint: `localhost:3389`
 - Persistent user data on macOS:
   - builds: `/Users/sergio/Documents/30_HOBBY_AI/POB-data/builds`
-  - wine prefix: `/Users/sergio/Documents/30_HOBBY_AI/POB-data/wine-prefix`
 
 ## What this repo does not own
 
+- No Wine path
+- No official Windows portable zip mirror
 - No Windows VM
 - No Windows containers
-- No full upstream source mirror for Path of Building Community
 
-## Runtime paths
-
-Flatpak-native path:
-
-- build helper image: `Dockerfile.flatpak`
-- local manifest: `flatpak/community.pathofbuilding.PathOfBuilding.yml`
-- scripts:
-  - `./scripts/flatpak-bootstrap.sh`
-  - `./scripts/flatpak-build.sh`
-  - `./scripts/flatpak-run.sh`
-  - `./scripts/flatpak-shell.sh`
-
-Wine fallback path:
-
-- official portable zip + `Wine`
-- scripts:
-  - `./scripts/sync-release.sh latest`
-  - `./scripts/up.sh`
-  - `./scripts/down.sh`
-  - `./scripts/logs.sh`
-
-## Prerequisites
-
-- OrbStack or another Docker engine available on macOS
-- Enough disk space for:
-  - PoB portable archive: about 500 MB
-  - extracted runtime: about 500 MB
-  - Docker image layers and Wine prefix
-
-## Flatpak-native first run
+## First Run
 
 ```bash
+./scripts/flatpak-sync-upstream.sh latest
 ./scripts/flatpak-bootstrap.sh
 ./scripts/flatpak-build.sh
-./scripts/flatpak-run.sh
-```
-
-Open `Windows App` on macOS and add a new PC:
-
-- address: `localhost:3389`
-- username: `root`
-- password: value of `POB_RDP_PASSWORD`
-- keep the macOS input source on `ABC`/English for the RDP session unless you explicitly change `POB_RDP_KEYLAYOUT`
-
-## Wine fallback first run
-
-```bash
-./scripts/sync-release.sh latest
-./scripts/ensure-base-image.sh
 ./scripts/up.sh
 ```
 
@@ -81,87 +44,17 @@ Open `Windows App` on macOS and add a new PC:
 - address: `localhost:3389`
 - username: `root`
 - password: value of `POB_RDP_PASSWORD`
-- keep the macOS input source on `ABC`/English for the RDP session unless you explicitly change `POB_RDP_KEYLAYOUT`
+- keep the macOS input source on `ABC`/English unless you explicitly change `POB_RDP_KEYLAYOUT`
 
-## Release Prefetch Automation
+## Daily Use
 
-You can install a local `launchd` job that checks for the latest official PoB release after working hours, downloads it into cache, and extracts it without switching the active runtime.
-
-Install the job:
-
-```bash
-./scripts/install-release-prefetch-agent.sh
-```
-
-Default schedule is daily at `18:30` local time. Override it before install if needed:
-
-```bash
-POB_PREFETCH_HOUR=19 POB_PREFETCH_MINUTE=15 ./scripts/install-release-prefetch-agent.sh
-```
-
-Manual prefetch run:
-
-```bash
-./scripts/prefetch-latest.sh
-```
-
-Remove the job:
-
-```bash
-./scripts/uninstall-release-prefetch-agent.sh
-```
-
-## Operations
-
-Flatpak bootstrap:
-
-```bash
-./scripts/flatpak-bootstrap.sh
-```
-
-Build the native Flatpak app:
-
-```bash
-./scripts/flatpak-build.sh
-```
-
-Run the native Flatpak stack:
-
-```bash
-./scripts/flatpak-run.sh
-```
-
-Open a debug shell in the Flatpak helper image:
-
-```bash
-./scripts/flatpak-shell.sh
-```
-
-Download a specific Wine fallback release:
-
-```bash
-./scripts/sync-release.sh v2.63.0
-```
-
-Prefetch the latest release without making it active:
-
-```bash
-./scripts/sync-release.sh --prefetch latest
-```
-
-Bring the Wine fallback stack up:
+Bring the stack up:
 
 ```bash
 ./scripts/up.sh
 ```
 
-Populate or refresh the local Docker base image cache:
-
-```bash
-./scripts/ensure-base-image.sh
-```
-
-Stop the Wine fallback stack:
+Stop it:
 
 ```bash
 ./scripts/down.sh
@@ -173,39 +66,87 @@ Tail logs:
 ./scripts/logs.sh
 ```
 
-You can also use plain Docker Compose directly:
+Open a debug shell in the helper image:
 
 ```bash
-docker --context orbstack compose up -d
-docker --context orbstack compose down
-docker --context orbstack compose logs -f
+./scripts/flatpak-shell.sh
 ```
 
-Flatpak stack directly:
+## Upstream Patch Flow
+
+Pull the latest Flathub-side changes into the local manifest:
 
 ```bash
-docker --context orbstack compose -f docker-compose.flatpak.yml up -d --build
-docker --context orbstack compose -f docker-compose.flatpak.yml down
-docker --context orbstack compose -f docker-compose.flatpak.yml logs -f
+./scripts/flatpak-sync-upstream.sh latest
 ```
 
-## Storage layout
+Build and export the local Flatpak repo:
 
-- Repo-local release cache:
-  - `.cache/downloads/<tag>/PathOfBuildingCommunity-Portable.zip`
-  - `.cache/runtime/<tag>/`
-  - `.cache/runtime/current -> .cache/runtime/<tag>`
-- Repo-local Docker cache:
-  - `.cache/flatpak/upstream/cargo-sources.json`
+```bash
+./scripts/flatpak-build.sh
+```
+
+One-shot refresh with rebuild and runner recreate:
+
+```bash
+./scripts/flatpak-refresh.sh
+```
+
+Force rebuild even if the upstream snapshot did not change:
+
+```bash
+./scripts/flatpak-refresh.sh --force
+```
+
+Refresh without restarting the running RDP container:
+
+```bash
+./scripts/flatpak-refresh.sh --no-restart
+```
+
+## Weekly Rebuild Automation
+
+Install the local `launchd` job:
+
+```bash
+./scripts/install-flatpak-refresh-agent.sh
+```
+
+Defaults:
+
+- weekday: `6` (`Saturday`)
+- time: `19:00` local time
+- action: check latest Flathub snapshot, sync local manifest, rebuild, and recreate the runner on success
+
+Override the schedule before install if needed:
+
+```bash
+POB_FLATPAK_REFRESH_WEEKDAY=0 POB_FLATPAK_REFRESH_HOUR=20 POB_FLATPAK_REFRESH_MINUTE=30 ./scripts/install-flatpak-refresh-agent.sh
+```
+
+Remove the job:
+
+```bash
+./scripts/uninstall-flatpak-refresh-agent.sh
+```
+
+Logs:
+
+- repo log: `.state/logs/flatpak-refresh.log`
+- last applied upstream snapshot: `.state/flatpak-upstream-head`
+- last successful refresh timestamp: `.state/flatpak-upstream-last-refresh`
+
+## Storage Layout
+
+- Repo-local Flatpak cache:
+  - `.cache/flatpak/upstream/`
   - `.cache/flatpak/build/`
   - `.cache/flatpak/repo/`
   - `.cache/flatpak/state/`
-  - `.cache/images/debian-bookworm-slim.tar`
 - Persistent host storage:
   - `/Users/sergio/Documents/30_HOBBY_AI/POB-data/builds`
-  - `/Users/sergio/Documents/30_HOBBY_AI/POB-data/wine-prefix`
 
-Inside the container, the build directory is mounted at `/data/builds`. The Wine fallback links that directory into the Wine user documents path, while the Flatpak runtime links it into both `Path of Building*` and `RustyPathOfBuilding*` app-data roots so saved builds survive container recreation.
+Inside the container, the build directory is mounted at `/data/builds`. The runtime links that directory into both `Path of Building*` and `RustyPathOfBuilding*` app-data roots so saved builds survive container recreation.
 
 ## Configuration
 
@@ -222,26 +163,19 @@ POB_FLATPAK_APP_ID=community.pathofbuilding.PathOfBuilding
 POB_FLATPAK_GAME=poe1
 POB_FLATPAK_RUNTIME_VERSION=25.08
 POB_FLATPAK_UPSTREAM_SNAPSHOT=aa186a1606107b3f9035ea03d72c79e8ea24c885
+POB_FLATPAK_REFRESH_WEEKDAY=6
+POB_FLATPAK_REFRESH_HOUR=19
+POB_FLATPAK_REFRESH_MINUTE=0
 POB_BUILDS_HOST_DIR=/Users/sergio/Documents/30_HOBBY_AI/POB-data/builds
-POB_WINEPREFIX_HOST_DIR=/Users/sergio/Documents/30_HOBBY_AI/POB-data/wine-prefix
 ```
 
 See [.env.example](/Users/sergio/Documents/30_HOBBY_AI/POB/.env.example).
 
 ## Notes
 
-- `docker-compose.yml` pins the container to `linux/amd64`. On Apple Silicon, OrbStack emulates it.
-- `docker-compose.flatpak.yml` uses a privileged helper container because local Flatpak build/run inside Docker needs `bubblewrap` and sandbox-related kernel features.
-- `scripts/up.sh`, `scripts/down.sh`, and `scripts/logs.sh` prefer `POB_DOCKER_CONTEXT`, then auto-detect an `orbstack` Docker context if it exists.
-- `scripts/ensure-base-image.sh` caches `debian:bookworm-slim` under `.cache/images/` and loads it locally before pulling from the network.
-- `Dockerfile` uses BuildKit cache mounts for `apt`, so repeated builds reuse Debian package downloads when you avoid `--no-cache`.
-- `Dockerfile.flatpak` also uses BuildKit cache mounts for `apt`; repeated helper-image rebuilds should be cheaper if you avoid `--no-cache`.
-- `flatpak-bootstrap.sh` downloads a pinned `cargo-sources.json` snapshot from the Flathub PoB repo into `.cache/flatpak/upstream/`.
-- `flatpak-build.sh` expects that cached `cargo-sources.json` file and exports a local Flatpak repo under `.cache/flatpak/repo/`.
-- `flatpak-run.sh` defaults to `POB_FLATPAK_GAME=poe1`; switch it to `poe2` if you want the PoE 2 asset set instead.
-- `flatpak-run.sh` and `scripts/up.sh` both default to `localhost:3389`; do not run both stacks at once unless you change one of the RDP ports.
-- `sync-release.sh` verifies the release archive against the GitHub API `sha256` digest when available.
-- `sync-release.sh --prefetch` downloads and extracts a newer release into cache without changing `.cache/runtime/current`.
-- The launchd job only prefetches releases; activation still happens manually when you run `./scripts/sync-release.sh latest`.
-- The GUI transport is direct `xrdp` for `Windows App`; internally the image uses an `Xvnc` session backend rather than browser-based VNC.
-- By default the container forces RDP keylayout `0x00000409` to avoid broken `0x00000419` mapping in `Windows App`; set `POB_RDP_KEYLAYOUT` if you want a different layout.
+- `docker-compose.flatpak.yml` uses a privileged helper container because local Flatpak build/run inside Docker needs `bubblewrap` and related sandbox features.
+- `Dockerfile.flatpak` uses BuildKit cache mounts for `apt`; repeated helper-image rebuilds should be cheaper when you avoid `--no-cache`.
+- `flatpak-sync-upstream.sh` regenerates the local manifest from the latest upstream Flathub manifest and removes the `extrafiles` packaging block that is not needed for this local runner.
+- `scripts/up.sh`, `scripts/down.sh`, and `scripts/logs.sh` now target the Flatpak stack only.
+- `flatpak-run.sh` and `up.sh` both default to `localhost:3389`; do not run another RDP stack on the same port at the same time.
+- The runtime starts `rusty-path-of-building` with `POB_FLATPAK_GAME=poe1` by default. Switch it to `poe2` if you want the PoE 2 asset set instead.

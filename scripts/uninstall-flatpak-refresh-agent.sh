@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-AGENT_LABEL="dev.sergio.pob.release-prefetch"
+AGENT_LABEL="dev.sergio.pob.flatpak-refresh"
 AGENT_PATH="${HOME}/Library/LaunchAgents/${AGENT_LABEL}.plist"
 
 launchctl bootout "gui/$(id -u)" "$AGENT_PATH" >/dev/null 2>&1 || true

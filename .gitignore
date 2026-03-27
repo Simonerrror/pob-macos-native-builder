@@ -1,11 +1,7 @@
 .DS_Store
 .env
-.cache/downloads/
 .cache/flatpak/*
-.cache/images/*
-.cache/runtime/*
 !.cache/flatpak/.gitkeep
-!.cache/runtime/.gitkeep
-!.cache/images/.gitkeep
+flatpak/cargo-sources.json
 .state/*
 !.state/.gitkeep
