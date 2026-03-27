@@ -4,6 +4,7 @@ set -euo pipefail
 BUILD_DIR="${BUILD_DIR:-/data/builds}"
 POB_RDP_PORT="${POB_RDP_PORT:-3389}"
 POB_RDP_PASSWORD="${POB_RDP_PASSWORD:-}"
+POB_RDP_KEYLAYOUT="${POB_RDP_KEYLAYOUT:-0x00000409}"
 WINEPREFIX="${WINEPREFIX:-/wine-prefix}"
 RUNTIME_DIR="/runtime"
 LOG_DIR="/var/log/pob"
@@ -85,11 +86,14 @@ configure_root_password() {
 }
 
 configure_xrdp() {
-  awk -v port="$POB_RDP_PORT" '
+  awk -v port="$POB_RDP_PORT" -v keylayout="$POB_RDP_KEYLAYOUT" '
     /^\[Globals\]/ { in_globals=1; print; next }
     /^\[/ && $0 != "[Globals]" { in_globals=0; print; next }
     in_globals && /^port=/ { print "port=" port; next }
     in_globals && /^autorun=/ { print "autorun=Xvnc"; next }
+    in_globals && /^#xrdp.override_keyboard_type=/ { print "xrdp.override_keyboard_type=0x04"; next }
+    in_globals && /^#xrdp.override_keyboard_subtype=/ { print "xrdp.override_keyboard_subtype=0x01"; next }
+    in_globals && /^#xrdp.override_keylayout=/ { print "xrdp.override_keylayout=" keylayout; next }
     { print }
   ' /etc/xrdp/xrdp.ini > /etc/xrdp/xrdp.ini.tmp
   mv /etc/xrdp/xrdp.ini.tmp /etc/xrdp/xrdp.ini

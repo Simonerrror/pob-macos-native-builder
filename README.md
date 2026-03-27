@@ -39,6 +39,7 @@ Open `Windows App` on macOS and add a new PC:
 - address: `localhost:3389`
 - username: `root`
 - password: value of `POB_RDP_PASSWORD`
+- keep the macOS input source on `ABC`/English for the RDP session unless you explicitly change `POB_RDP_KEYLAYOUT`
 
 ## Release Prefetch Automation
 
@@ -136,6 +137,7 @@ Optional overrides can be provided via environment variables or a local `.env` f
 POB_DOCKER_CONTEXT=orbstack
 POB_RDP_PASSWORD=changeme
 POB_RDP_PORT=3389
+POB_RDP_KEYLAYOUT=0x00000409
 POB_BUILDS_HOST_DIR=/Users/sergio/Documents/30_HOBBY_AI/POB-data/builds
 POB_WINEPREFIX_HOST_DIR=/Users/sergio/Documents/30_HOBBY_AI/POB-data/wine-prefix
 ```
@@ -152,3 +154,4 @@ See [.env.example](/Users/sergio/Documents/30_HOBBY_AI/POB/.env.example).
 - `sync-release.sh --prefetch` downloads and extracts a newer release into cache without changing `.cache/runtime/current`.
 - The launchd job only prefetches releases; activation still happens manually when you run `./scripts/sync-release.sh latest`.
 - The GUI transport is direct `xrdp` for `Windows App`; internally the image uses an `Xvnc` session backend rather than browser-based VNC.
+- By default the container forces RDP keylayout `0x00000409` to avoid broken `0x00000419` mapping in `Windows App`; set `POB_RDP_KEYLAYOUT` if you want a different layout.
