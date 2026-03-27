@@ -5,8 +5,7 @@ services:
       dockerfile: Dockerfile.flatpak.runner
     image: ${POB_FLATPAK_RUNNER_IMAGE:-pob-flatpak-runner:local}
     container_name: pob-flatpak-rdp
-    cap_add:
-      - SYS_ADMIN
+    privileged: true
     environment:
       BUILD_DIR: /data/builds
       POB_RDP_PASSWORD: ${POB_RDP_PASSWORD:-changeme}
@@ -18,8 +17,6 @@ services:
       POB_FLATPAK_REPO_DIR: /repo
     ports:
       - "${POB_FLATPAK_RDP_PORT:-3389}:3389"
-    security_opt:
-      - seccomp=unconfined
     volumes:
       - ./.cache/flatpak/repo:/repo:ro
       - ./.cache/flatpak/state/system:/var/lib/flatpak
