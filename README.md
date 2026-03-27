@@ -147,7 +147,8 @@ See [.env.example](/Users/sergio/Documents/30_HOBBY_AI/POB/.env.example).
 - `docker-compose.yml` pins the container to `linux/amd64`. On Apple Silicon, OrbStack emulates it.
 - `scripts/up.sh`, `scripts/down.sh`, and `scripts/logs.sh` prefer `POB_DOCKER_CONTEXT`, then auto-detect an `orbstack` Docker context if it exists.
 - `scripts/ensure-base-image.sh` caches `debian:bookworm-slim` under `.cache/images/` and loads it locally before pulling from the network.
+- `Dockerfile` uses BuildKit cache mounts for `apt`, so repeated builds reuse Debian package downloads when you avoid `--no-cache`.
 - `sync-release.sh` verifies the release archive against the GitHub API `sha256` digest when available.
 - `sync-release.sh --prefetch` downloads and extracts a newer release into cache without changing `.cache/runtime/current`.
 - The launchd job only prefetches releases; activation still happens manually when you run `./scripts/sync-release.sh latest`.
-- The GUI transport is direct `xrdp`; browser access is intentionally removed.
+- The GUI transport is direct `xrdp` for `Windows App`; internally the image uses an `Xvnc` session backend rather than browser-based VNC.

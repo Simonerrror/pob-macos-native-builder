@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -6,7 +7,12 @@ ENV DEBIAN_FRONTEND=noninteractive \
     WINEPREFIX=/wine-prefix \
     WINEDEBUG=-all
 
-RUN dpkg --add-architecture i386 \
+RUN rm -f /etc/apt/apt.conf.d/docker-clean \
+    && printf 'Binary::apt::APT::Keep-Downloaded-Packages "true";\n' >/etc/apt/apt.conf.d/keep-cache
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    dpkg --add-architecture i386 \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
         bash \
@@ -17,6 +23,7 @@ RUN dpkg --add-architecture i386 \
         fluxbox \
         net-tools \
         procps \
+        tigervnc-standalone-server \
         tini \
         unzip \
         wine \
@@ -24,10 +31,8 @@ RUN dpkg --add-architecture i386 \
         wine64 \
         winbind \
         xauth \
-        xorgxrdp \
         xrdp \
-        xserver-xorg-core \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get clean
 
 RUN mkdir -p /var/log/pob /run/xrdp /root
 

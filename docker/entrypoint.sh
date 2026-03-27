@@ -89,9 +89,26 @@ configure_xrdp() {
     /^\[Globals\]/ { in_globals=1; print; next }
     /^\[/ && $0 != "[Globals]" { in_globals=0; print; next }
     in_globals && /^port=/ { print "port=" port; next }
+    in_globals && /^autorun=/ { print "autorun=Xvnc"; next }
     { print }
   ' /etc/xrdp/xrdp.ini > /etc/xrdp/xrdp.ini.tmp
   mv /etc/xrdp/xrdp.ini.tmp /etc/xrdp/xrdp.ini
+  if ! grep -q '^autorun=Xvnc$' /etc/xrdp/xrdp.ini; then
+    awk '
+      /^\[Globals\]/ { print; print "autorun=Xvnc"; next }
+      { print }
+    ' /etc/xrdp/xrdp.ini > /etc/xrdp/xrdp.ini.tmp
+    mv /etc/xrdp/xrdp.ini.tmp /etc/xrdp/xrdp.ini
+  fi
+
+  awk '
+    /^\[Xvnc\]/ { in_xvnc=1; print; next }
+    /^\[/ && $0 != "[Xvnc]" { in_xvnc=0; print; next }
+    in_xvnc && /^param=Xvnc$/ { print "param=/usr/bin/Xtigervnc"; next }
+    in_xvnc && /^param=-localhost$/ { print; print "param=-SecurityTypes"; print "param=None"; next }
+    { print }
+  ' /etc/xrdp/sesman.ini > /etc/xrdp/sesman.ini.tmp
+  mv /etc/xrdp/sesman.ini.tmp /etc/xrdp/sesman.ini
   mkdir -p /var/run/dbus /run/xrdp
   cat > /etc/xrdp/startwm.sh <<'EOF'
 #!/usr/bin/env bash

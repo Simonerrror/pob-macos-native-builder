@@ -13,6 +13,10 @@ export WINEPREFIX
 export WINEDEBUG="${WINEDEBUG:--all}"
 export LANG="${LANG:-C.UTF-8}"
 export LC_ALL="${LC_ALL:-C.UTF-8}"
+export LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-1}"
+export GALLIUM_DRIVER="${GALLIUM_DRIVER:-llvmpipe}"
+export MESA_LOADER_DRIVER_OVERRIDE="${MESA_LOADER_DRIVER_OVERRIDE:-llvmpipe}"
+export __GLX_VENDOR_LIBRARY_NAME="${__GLX_VENDOR_LIBRARY_NAME:-mesa}"
 
 fluxbox -log "$LOG_DIR/fluxbox.log" >>"$LOG_DIR/fluxbox.stdout" 2>&1 &
 FLUXBOX_PID=$!
