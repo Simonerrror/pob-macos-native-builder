@@ -58,6 +58,8 @@ Bring the stack up:
 ./scripts/up.sh
 ```
 
+By default the host starts an idle watcher too. If there is no active RDP client connected to `localhost:3389` for `20` minutes, it automatically runs `./scripts/down.sh` and frees the laptop.
+
 One-click macOS launcher from Terminal:
 
 ```bash
@@ -199,6 +201,9 @@ POB_FLATPAK_UPSTREAM_SNAPSHOT=aa186a1606107b3f9035ea03d72c79e8ea24c885
 POB_FLATPAK_REFRESH_WEEKDAY=6
 POB_FLATPAK_REFRESH_HOUR=19
 POB_FLATPAK_REFRESH_MINUTE=0
+POB_IDLE_AUTO_DOWN=1
+POB_IDLE_TIMEOUT_MINUTES=20
+POB_IDLE_POLL_SECONDS=60
 POB_BUILDS_HOST_DIR=/Users/sergio/Documents/30_HOBBY_AI/POB-data/builds
 ```
 
@@ -211,4 +216,5 @@ See [.env.example](/Users/sergio/Documents/30_HOBBY_AI/POB/.env.example).
 - `flatpak-sync-upstream.sh` regenerates the local manifest from the latest upstream Flathub manifest and removes the `extrafiles` packaging block that is not needed for this local runner.
 - `scripts/up.sh`, `scripts/down.sh`, and `scripts/logs.sh` now target the Flatpak stack only.
 - `flatpak-run.sh` and `up.sh` both default to `localhost:3389`; do not run another RDP stack on the same port at the same time.
+- Auto-down watches host-side TCP connections to `localhost:3389`, not mouse or keyboard events inside the session. If the RDP client disconnects and stays disconnected for the timeout window, the container is stopped.
 - The runtime starts `rusty-path-of-building` with `POB_FLATPAK_GAME=poe1` by default. Switch it to `poe2` if you want the PoE 2 asset set instead.
