@@ -1,6 +1,6 @@
 .git
 .cache/downloads
+.cache/flatpak
 .cache/images
 .cache/runtime
 .state
-

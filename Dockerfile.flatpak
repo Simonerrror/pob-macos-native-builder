@@ -1,0 +1,49 @@
+# syntax=docker/dockerfile:1.7
+FROM debian:bookworm-slim
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
+    XDG_RUNTIME_DIR=/run/user/0
+
+RUN rm -f /etc/apt/apt.conf.d/docker-clean \
+    && printf 'Binary::apt::APT::Keep-Downloaded-Packages "true";\n' >/etc/apt/apt.conf.d/keep-cache
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update \
+    && apt-get install -y --no-install-recommends \
+        bash \
+        bubblewrap \
+        ca-certificates \
+        curl \
+        dbus \
+        dbus-x11 \
+        elfutils \
+        flatpak \
+        flatpak-builder \
+        fluxbox \
+        git \
+        net-tools \
+        procps \
+        tigervnc-standalone-server \
+        tini \
+        xauth \
+        xdg-dbus-proxy \
+        xrdp \
+    && apt-get clean
+
+RUN mkdir -p /var/log/pob-flatpak /run/xrdp /run/user/0 /root \
+    && chmod 0700 /run/user/0
+
+COPY docker/flatpak-entrypoint.sh /usr/local/bin/pob-flatpak-entrypoint
+COPY docker/flatpak-session.sh /usr/local/bin/pob-flatpak-session
+
+RUN chmod +x /usr/local/bin/pob-flatpak-entrypoint /usr/local/bin/pob-flatpak-session
+
+EXPOSE 3389
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD netstat -ltn | grep -q ':3389 ' || exit 1
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/pob-flatpak-entrypoint"]
