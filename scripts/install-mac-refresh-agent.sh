@@ -5,7 +5,6 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 AGENT_DIR="${HOME}/Library/LaunchAgents"
 AGENT_LABEL="dev.sergio.pob.mac-native-refresh"
 AGENT_PATH="${AGENT_DIR}/${AGENT_LABEL}.plist"
-OLD_FLATPAK_AGENT_PATH="${AGENT_DIR}/dev.sergio.pob.flatpak-refresh.plist"
 LOG_DIR="${REPO_ROOT}/.state/logs"
 WEEKDAY="${POB_MAC_REFRESH_WEEKDAY:-6}"
 HOUR="${POB_MAC_REFRESH_HOUR:-19}"
@@ -13,8 +12,6 @@ MINUTE="${POB_MAC_REFRESH_MINUTE:-0}"
 PATH_VALUE="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 mkdir -p "$AGENT_DIR" "$LOG_DIR"
-
-launchctl bootout "gui/$(id -u)" "$OLD_FLATPAK_AGENT_PATH" >/dev/null 2>&1 || true
 
 cat >"$AGENT_PATH" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>

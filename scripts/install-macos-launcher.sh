@@ -10,7 +10,7 @@ cat >"$TARGET_PATH" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
 cd "${REPO_ROOT}"
-exec "${REPO_ROOT}/scripts/launch-pob.sh"
+exec "${REPO_ROOT}/scripts/mac-launch.sh"
 EOF
 chmod +x "$TARGET_PATH"
 

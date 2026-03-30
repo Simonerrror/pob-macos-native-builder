@@ -2,11 +2,6 @@
 
 Local macOS-native PoB builder and bundle pipeline for Apple Silicon.
 
-The repo now owns two runtime paths:
-
-- `mac-native`: primary path, builds a local unsigned `Path of Building.app`
-- `flatpak-native`: fallback path, kept for parity checks and rollback
-
 The native path is source-driven:
 
 - trigger: official `PathOfBuildingCommunity/PathOfBuilding` release tag
@@ -72,9 +67,7 @@ Launch the native app:
 ./scripts/mac-launch.sh
 ```
 
-Or double-click:
-
-- `POB.command`
+Or double-click [POB.command](/Users/sergio/Documents/30_HOBBY_AI/POB/POB.command).
 
 Rebuild the current native app bundle:
 
@@ -126,18 +119,6 @@ Logs:
 - current native mapping: `.state/macos/current-version.json`
 - last successful native refresh: `.state/macos/last-refresh`
 
-## Flatpak Fallback
-
-The old container path is still here as a fallback:
-
-- `./scripts/flatpak-sync-upstream.sh latest`
-- `./scripts/flatpak-build.sh`
-- `./scripts/up.sh`
-- `./scripts/down.sh`
-- `./scripts/logs.sh`
-
-That path stays useful for regression checks until native `.app` reaches full parity.
-
 ## Storage Layout
 
 - Repo-local native cache:
@@ -176,4 +157,3 @@ See [.env.example](/Users/sergio/Documents/30_HOBBY_AI/POB/.env.example).
 - The native path rebuilds from upstream source snapshots and compatibility metadata; it does not translate the Windows binary.
 - `mac-launch.sh` will trigger a full native refresh automatically if the `.app` is missing.
 - The bundle launcher keeps user data outside the `.app` and only refreshes the versioned payload when the bundle version changes.
-- The flatpak path remains in the repo intentionally as a rollback option while the native path is hardened.
