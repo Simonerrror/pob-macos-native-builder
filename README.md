@@ -67,7 +67,11 @@ Launch the native app:
 ./scripts/mac-launch.sh
 ```
 
-Or double-click [POB.command](/Users/sergio/Documents/30_HOBBY_AI/POB/POB.command).
+Or install a Desktop launcher:
+
+```bash
+./scripts/install-macos-launcher.sh
+```
 
 Rebuild the current native app bundle:
 
