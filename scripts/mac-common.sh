@@ -348,6 +348,7 @@ payload = {
         "userdata-symlink",
         "builds-symlink",
         "lua-cpath",
+        "disable-in-app-update",
     ],
 }
 

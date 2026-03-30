@@ -41,6 +41,15 @@ The build script expects host-side Rust from `rustup` and bootstraps the C/Lua p
 - `pkgconf`
 - `luarocks`
 
+The in-app `Check for Update` path is intentionally disabled in the native macOS build.
+Use the local conveyor instead:
+
+```bash
+./scripts/mac-sync-upstream.sh latest
+./scripts/mac-build.sh
+./scripts/mac-bundle.sh
+```
+
 The generated app lands at:
 
 - `dist/Path of Building.app`

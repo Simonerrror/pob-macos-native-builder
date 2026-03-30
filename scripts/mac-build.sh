@@ -94,6 +94,56 @@ text = text.replace('#[cfg(target_family = "unix")]', '#[cfg(all(target_family =
 clipboard.write_text(text, encoding="utf-8")
 PY
 
+log "Applying local macOS payload patch set"
+python3 - "${payload_dir}/Launch.lua" "${payload_dir}/Modules/Main.lua" <<'PY'
+from pathlib import Path
+import sys
+
+launch = Path(sys.argv[1])
+main = Path(sys.argv[2])
+
+launch_text = launch.read_text(encoding="utf-8")
+launch_old = """function launch:CheckForUpdate(inBackground)
+\tif self.updateCheckRunning then
+\t\treturn
+\tend
+\tself.updateCheckBackground = inBackground
+\tself.updateMsg = "Initialising..."
+\tself.updateProgress = "Checking..."
+\tself.lastUpdateCheck = GetTime()
+\tlocal update = io.open("UpdateCheck.lua", "r")
+\tlocal id = LaunchSubScript(update:read("*a"), "GetScriptPath,GetRuntimePath,GetWorkDir,MakeDir", "ConPrintf,UpdateProgress", self.connectionProtocol, self.proxyURL, self.noSSL or false)
+\tif id then
+\t\tself.subScripts[id] = {
+\t\t\ttype = "UPDATE"
+\t\t}
+\t\tself.updateCheckRunning = true
+\tend
+\tupdate:close()
+end"""
+launch_new = """function launch:CheckForUpdate(inBackground)
+\tself.updateCheckRunning = false
+\tself.updateAvailable = nil
+\tself.updateProgress = "Managed externally"
+\tself.lastUpdateCheck = GetTime()
+\tif not inBackground then
+\t\tself:ShowPrompt(1, 0.85, 0.2, "^8Updates are managed externally in the native macOS build.\\n\\n^0Use the local conveyor or scheduled refresh job to pull new upstream releases.")
+\tend
+\tConPrintf("In-app update is disabled for the native macOS build.")
+\treturn "external"
+end"""
+if launch_old in launch_text and launch_new not in launch_text:
+    launch_text = launch_text.replace(launch_old, launch_new, 1)
+launch.write_text(launch_text, encoding="utf-8")
+
+main_text = main.read_text(encoding="utf-8")
+main_text = main_text.replace(
+    'return launch.updateCheckRunning and launch.updateProgress or "Check for Update"',
+    'return launch.updateCheckRunning and launch.updateProgress or "Update via Conveyor"',
+)
+main.write_text(main_text, encoding="utf-8")
+PY
+
 log "Building lzip native module"
 (
   cd "${rusty_source_dir}/lua/libs/lzip"
