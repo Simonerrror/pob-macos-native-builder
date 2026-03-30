@@ -22,7 +22,30 @@ if [[ ! -d "$rusty_source_dir" || ! -d "$pob_source_dir" ]]; then
   exit 1
 fi
 
-rm -rf "$stage_dir" "$runtime_dir"
+python3 - "$stage_dir" "$runtime_dir" <<'PY'
+from pathlib import Path
+import subprocess
+import shutil
+import sys
+
+def nuke(path: Path) -> None:
+    for _ in range(3):
+        if not path.exists():
+            return
+        for junk in path.rglob(".DS_Store"):
+            junk.unlink(missing_ok=True)
+        shutil.rmtree(path, ignore_errors=True)
+        if not path.exists():
+            return
+        subprocess.run(["/bin/chmod", "-R", "u+w", str(path)], check=False)
+        subprocess.run(["/bin/rm", "-rf", str(path)], check=False)
+    if path.exists():
+        raise SystemExit(f"Failed to remove build path: {path}")
+
+for raw in sys.argv[1:]:
+    path = Path(raw)
+    nuke(path)
+PY
 mkdir -p "$stage_dir" "$runtime_dir" "$downloads_vendor_dir"
 
 payload_dir="${stage_dir}/payload/current"
@@ -34,10 +57,42 @@ rsync -a --delete "${rusty_source_dir}/lua/" "${payload_dir}/lua/"
 mkdir -p "${payload_dir}/lib/lua/5.1"
 
 luajit_root="$(luajit_prefix)"
-export PATH="$(brew --prefix rust)/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+if [[ -f "${HOME}/.cargo/env" ]]; then
+  # Prefer rustup-managed toolchains over the heavy Homebrew rust formula.
+  source "${HOME}/.cargo/env"
+fi
+export PATH="${HOME}/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 export PKG_CONFIG_PATH="${luajit_root}/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
 export LUAJIT_LIB_DIR="${luajit_root}/lib"
 export LUAJIT_INCLUDE_DIR="${luajit_root}/include/luajit-2.1"
+export CARGO_HTTP_TIMEOUT="${CARGO_HTTP_TIMEOUT:-600}"
+export CARGO_NET_RETRY="${CARGO_NET_RETRY:-10}"
+export CARGO_REGISTRIES_CRATES_IO_PROTOCOL="${CARGO_REGISTRIES_CRATES_IO_PROTOCOL:-sparse}"
+
+log "Applying local macOS cargo patch set"
+python3 - "${rusty_source_dir}/Cargo.toml" "${rusty_source_dir}/src/clipboard.rs" <<'PY'
+from pathlib import Path
+import sys
+
+manifest = Path(sys.argv[1])
+clipboard = Path(sys.argv[2])
+
+text = manifest.read_text(encoding="utf-8")
+old = "[target.'cfg(unix)'.dependencies]"
+new = "[target.'cfg(all(unix, not(target_os = \"macos\")))'.dependencies]"
+wgpu_old = 'wgpu = { version = "27.0.1", default-features = false, features = ["std", "parking_lot", "vulkan", "wgsl"] }'
+wgpu_new = 'wgpu = { version = "27.0.1", default-features = false, features = ["std", "parking_lot", "vulkan", "metal", "wgsl"] }'
+
+if old in text and new not in text:
+    text = text.replace(old, new, 1)
+if wgpu_old in text and wgpu_new not in text:
+    text = text.replace(wgpu_old, wgpu_new, 1)
+    manifest.write_text(text, encoding="utf-8")
+
+text = clipboard.read_text(encoding="utf-8")
+text = text.replace('#[cfg(target_family = "unix")]', '#[cfg(all(target_family = "unix", not(target_os = "macos")))]')
+clipboard.write_text(text, encoding="utf-8")
+PY
 
 log "Building lzip native module"
 (
@@ -70,7 +125,7 @@ log "Building Lua-cURLv3 native module"
 (
   cd "$luacurl_build_dir"
   make clean >/dev/null 2>&1 || true
-  make DESTDIR="${payload_dir}" LUA_CMOD=/lib/lua/5.1 LUA_IMPL=luajit install
+  make DESTDIR="${payload_dir}" LUA_CMOD=/lib/lua/5.1 LUA_LMOD=/share/lua/5.1 LUA_IMPL=luajit install
 )
 
 log "Building rusty-path-of-building binary"

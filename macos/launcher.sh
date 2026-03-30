@@ -21,12 +21,17 @@ with open(sys.argv[1], "r", encoding="utf-8") as handle:
 
 print(payload["version_id"])
 print(payload["game"])
+print(payload["rusty"]["version"])
 PY
 }
 
-mapfile -t metadata_values < <(read_metadata)
+metadata_values=()
+while IFS= read -r line; do
+  metadata_values+=("$line")
+done < <(read_metadata)
 VERSION_ID="${metadata_values[0]}"
 GAME="${POB_MAC_GAME:-${metadata_values[1]}}"
+RUSTY_VERSION="${metadata_values[2]}"
 
 VERSIONS_ROOT="${APP_SUPPORT_ROOT}/versions"
 VERSION_DIR="${VERSIONS_ROOT}/${VERSION_ID}"
@@ -45,6 +50,7 @@ if [[ ! -f "$VERSION_MARKER" ]] || [[ "$(<"$VERSION_MARKER")" != "$VERSION_ID" ]
   ln -sfn "$USERDATA_ROOT" "${TMP_DIR}/userdata"
   ln -sfn "$BUILDS_DIR" "${TMP_DIR}/Builds"
   ln -sfn "$BUILDS_DIR" "${USERDATA_ROOT}/Builds"
+  printf '%s' "$RUSTY_VERSION" > "${TMP_DIR}/rpob.version"
   printf '%s\n' "$VERSION_ID" > "${TMP_DIR}/.bundle-version"
   rm -rf "$VERSION_DIR"
   mv "$TMP_DIR" "$VERSION_DIR"

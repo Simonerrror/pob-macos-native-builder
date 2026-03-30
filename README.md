@@ -34,9 +34,9 @@ The native path is source-driven:
 ./scripts/mac-launch.sh
 ```
 
-The build script bootstraps missing host dependencies with Homebrew:
+The build script expects host-side Rust from `rustup` and bootstraps the C/Lua pieces with Homebrew:
 
-- `rust`
+- `cargo` / `rustc`
 - `luajit`
 - `pkgconf`
 - `luarocks`

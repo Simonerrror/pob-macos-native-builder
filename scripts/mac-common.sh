@@ -114,12 +114,33 @@ extract_github_tarball() {
 
   log "Downloading ${repo}@${ref}"
   mkdir -p "$DOWNLOADS_ROOT"
-  curl -fL -C - \
-    --retry 10 \
-    --retry-delay 2 \
-    --retry-all-errors \
-    -o "$archive_path" \
-    "https://codeload.github.com/${repo}/tar.gz/refs/tags/${ref}"
+  local url
+  url="https://codeload.github.com/${repo}/tar.gz/refs/tags/${ref}"
+
+  if [[ -f "$archive_path" ]]; then
+    if ! curl -fL -C - \
+      --retry 10 \
+      --retry-delay 2 \
+      --retry-all-errors \
+      -o "$archive_path" \
+      "$url"; then
+      log "Resume failed for ${archive_name}; retrying from scratch"
+      rm -f "$archive_path"
+      curl -fL \
+        --retry 10 \
+        --retry-delay 2 \
+        --retry-all-errors \
+        -o "$archive_path" \
+        "$url"
+    fi
+  else
+    curl -fL \
+      --retry 10 \
+      --retry-delay 2 \
+      --retry-all-errors \
+      -o "$archive_path" \
+      "$url"
+  fi
   tar -xzf "$archive_path" -C "$tmpdir"
 
   local extracted_root
@@ -340,6 +361,8 @@ ensure_host_build_dependencies() {
   require_cmd brew
   require_cmd jq
   require_cmd python3
+  require_cmd cargo
+  require_cmd rustc
   require_cmd iconutil
   require_cmd plutil
   require_cmd otool
@@ -347,10 +370,10 @@ ensure_host_build_dependencies() {
   require_cmd rsync
 
   local formula
-  for formula in rust luajit pkgconf luarocks; do
+  for formula in luajit pkgconf luarocks; do
     if ! brew list --versions "$formula" >/dev/null 2>&1; then
       log "Installing Homebrew dependency: ${formula}"
-      brew install "$formula"
+      HOMEBREW_NO_AUTO_UPDATE=1 brew install "$formula"
     fi
   done
 }

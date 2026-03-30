@@ -39,20 +39,21 @@ chmod 755 "${runtime_bin_dir}/rusty-path-of-building"
 
 bundle_deps() {
   local file="$1"
-  local dep dep_name copied
+  local dep dep_name copied install_ref
   while read -r dep; do
     [[ -n "$dep" ]] || continue
     case "$dep" in
       /opt/homebrew/*|/usr/local/*)
         dep_name="$(basename "$dep")"
         copied="${runtime_lib_dir}/${dep_name}"
+        install_ref="@executable_path/../lib/${dep_name}"
         if [[ ! -f "$copied" ]]; then
           cp "$dep" "$copied"
           chmod 755 "$copied"
-          install_name_tool -id "@executable_path/../Resources/runtime/lib/${dep_name}" "$copied" >/dev/null 2>&1 || true
+          install_name_tool -id "$install_ref" "$copied" >/dev/null 2>&1 || true
           bundle_deps "$copied"
         fi
-        install_name_tool -change "$dep" "@executable_path/../Resources/runtime/lib/${dep_name}" "$file" >/dev/null 2>&1 || true
+        install_name_tool -change "$dep" "$install_ref" "$file" >/dev/null 2>&1 || true
         ;;
     esac
   done < <(otool -L "$file" | tail -n +2 | awk '{print $1}')
@@ -113,6 +114,17 @@ with open(output, "wb") as handle:
 PY
 
 plutil -lint "${tmp_bundle}/Contents/Info.plist" >/dev/null
+
+while IFS= read -r sign_target; do
+  /usr/bin/codesign --force --sign - --timestamp=none "$sign_target"
+done < <(
+  {
+    find "${runtime_lib_dir}" -type f \( -name '*.dylib' -o -name '*.so' \) 2>/dev/null
+    find "${runtime_bin_dir}" -type f 2>/dev/null
+  } | sort
+)
+
+/usr/bin/codesign --force --deep --sign - --timestamp=none "$tmp_bundle"
 
 rm -rf "$bundle_dir"
 mv "$tmp_bundle" "$bundle_dir"
