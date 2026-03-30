@@ -2,4 +2,4 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-exec "${REPO_ROOT}/scripts/launch-pob.sh"
+exec "${REPO_ROOT}/scripts/mac-launch.sh"

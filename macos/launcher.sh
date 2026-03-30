@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="$(cd "${SELF_DIR}/.." && pwd)"
+RESOURCES_DIR="${APP_DIR}/Resources"
+METADATA_FILE="${RESOURCES_DIR}/metadata/version.json"
+PAYLOAD_DIR="${RESOURCES_DIR}/payload/current"
+RUNTIME_BIN="${RESOURCES_DIR}/runtime/bin/rusty-path-of-building"
+RUNTIME_LIB_DIR="${RESOURCES_DIR}/runtime/lib"
+APP_SUPPORT_ROOT="${POB_MAC_SUPPORT_DIR:-${HOME}/Library/Application Support/Path of Building}"
+BUILDS_DIR="${POB_BUILDS_HOST_DIR:-/Users/sergio/Documents/30_HOBBY_AI/POB-data/builds}"
+
+read_metadata() {
+  python3 - "$METADATA_FILE" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as handle:
+    payload = json.load(handle)
+
+print(payload["version_id"])
+print(payload["game"])
+PY
+}
+
+mapfile -t metadata_values < <(read_metadata)
+VERSION_ID="${metadata_values[0]}"
+GAME="${POB_MAC_GAME:-${metadata_values[1]}}"
+
+VERSIONS_ROOT="${APP_SUPPORT_ROOT}/versions"
+VERSION_DIR="${VERSIONS_ROOT}/${VERSION_ID}"
+CURRENT_LINK="${APP_SUPPORT_ROOT}/current"
+USERDATA_ROOT="${APP_SUPPORT_ROOT}/userdata"
+VERSION_MARKER="${VERSION_DIR}/.bundle-version"
+
+mkdir -p "$VERSIONS_ROOT" "$USERDATA_ROOT" "$BUILDS_DIR"
+
+if [[ ! -f "$VERSION_MARKER" ]] || [[ "$(<"$VERSION_MARKER")" != "$VERSION_ID" ]]; then
+  TMP_DIR="${VERSION_DIR}.tmp.$$"
+  rm -rf "$TMP_DIR"
+  mkdir -p "$TMP_DIR"
+  rsync -a --delete "${PAYLOAD_DIR}/" "${TMP_DIR}/"
+  rm -f "${TMP_DIR}/userdata" "${TMP_DIR}/Builds" "${USERDATA_ROOT}/Builds"
+  ln -sfn "$USERDATA_ROOT" "${TMP_DIR}/userdata"
+  ln -sfn "$BUILDS_DIR" "${TMP_DIR}/Builds"
+  ln -sfn "$BUILDS_DIR" "${USERDATA_ROOT}/Builds"
+  printf '%s\n' "$VERSION_ID" > "${TMP_DIR}/.bundle-version"
+  rm -rf "$VERSION_DIR"
+  mv "$TMP_DIR" "$VERSION_DIR"
+fi
+
+ln -sfn "$VERSION_DIR" "$CURRENT_LINK"
+
+export LUA_PATH="${CURRENT_LINK}/share/lua/5.1/?.lua;${CURRENT_LINK}/share/lua/5.1/?/init.lua;;"
+export LUA_CPATH="${CURRENT_LINK}/lib/lua/5.1/?.so;;"
+export DYLD_FALLBACK_LIBRARY_PATH="${RUNTIME_LIB_DIR}${DYLD_FALLBACK_LIBRARY_PATH:+:${DYLD_FALLBACK_LIBRARY_PATH}}"
+
+cd "$CURRENT_LINK"
+exec "$RUNTIME_BIN" "$GAME" "$@"

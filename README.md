@@ -1,209 +1,162 @@
-# Path of Building Local OrbStack Wrapper
+# Path of Building Local Native Wrapper
 
-Local flatpak-native PoB runner for OrbStack on macOS.
+Local macOS-native PoB builder and bundle pipeline for Apple Silicon.
 
-The repo now owns one runtime path only:
+The repo now owns two runtime paths:
 
-- `flatpak-native`: Linux-native build based on the current Flathub approach with `rusty-path-of-building`
+- `mac-native`: primary path, builds a local unsigned `Path of Building.app`
+- `flatpak-native`: fallback path, kept for parity checks and rollback
 
-The GUI is exposed through `xrdp` for `Windows App` on macOS.
+The native path is source-driven:
+
+- trigger: official `PathOfBuildingCommunity/PathOfBuilding` release tag
+- runtime: compatible `meehl/rusty-path-of-building` release
+- build inputs: upstream source snapshots, not the Windows portable zip
 
 ## What this repo owns
 
-- `Dockerfile.flatpak.builder`: isolated Flatpak builder image
-- `Dockerfile.flatpak.runner` + `docker-compose.flatpak.yml`: lean Flatpak runtime + `xrdp` stack
-- `flatpak/community.pathofbuilding.PathOfBuilding.yml`: local Flatpak manifest used for build/export
-- `scripts/flatpak-sync-upstream.sh`: pull the latest upstream Flathub manifest and regenerate the local manifest
-- `scripts/flatpak-bootstrap.sh`: install Freedesktop runtime and SDK into repo-local Flatpak state
-- `scripts/flatpak-build.sh`: build and export the local Flatpak repo
-- `scripts/flatpak-run.sh`: recreate the runtime container
-- `scripts/flatpak-refresh.sh`: weekly-style sync + rebuild + optional runner restart
-- `scripts/install-flatpak-refresh-agent.sh`: install the local `launchd` rebuild job
-- `scripts/uninstall-flatpak-refresh-agent.sh`: remove that `launchd` job
-- RDP entrypoint: `localhost:3389`
-- Persistent user data on macOS:
-  - builds: `/Users/sergio/Documents/30_HOBBY_AI/POB-data/builds`
+- `scripts/mac-sync-upstream.sh`: resolve the latest official PoB release and a compatible Rusty runtime, then cache both source trees
+- `scripts/mac-build.sh`: build the native runtime and stage the app payload
+- `scripts/mac-bundle.sh`: assemble `dist/Path of Building.app`
+- `scripts/mac-launch.sh`: open the native `.app`, building it first if missing
+- `scripts/mac-refresh.sh`: weekly-style sync + rebuild + bundle + smoke test
+- `scripts/install-mac-refresh-agent.sh`: install the local `launchd` native refresh job
+- `scripts/uninstall-mac-refresh-agent.sh`: remove that `launchd` job
+- `scripts/mac-smoke-test.sh`: validate bundle structure and optionally boot the app briefly
+- `macos/launcher.sh`: the bundle launcher that materializes the payload into `~/Library/Application Support/Path of Building/`
 
-## What this repo does not own
-
-- No Wine path
-- No official Windows portable zip mirror
-- No Windows VM
-- No Windows containers
-
-## First Run
+## Native First Run
 
 ```bash
-./scripts/setup-rdp-tls.sh
-./scripts/flatpak-sync-upstream.sh latest
-./scripts/flatpak-bootstrap.sh
-./scripts/flatpak-build.sh
-./scripts/up.sh
+./scripts/mac-sync-upstream.sh latest
+./scripts/mac-build.sh
+./scripts/mac-bundle.sh
+./scripts/mac-launch.sh
 ```
 
-Open `Windows App` on macOS and add a new PC:
+The build script bootstraps missing host dependencies with Homebrew:
 
-- address: `localhost:3389`
-- username: `root`
-- password: value of `POB_RDP_PASSWORD`
-- keep the macOS input source on `ABC`/English unless you explicitly change `POB_RDP_KEYLAYOUT`
+- `rust`
+- `luajit`
+- `pkgconf`
+- `luarocks`
 
-`./scripts/setup-rdp-tls.sh` generates a stable local CA plus a `localhost` server certificate, stores them in `.state/rdp-tls/`, and imports the CA into your macOS login keychain so `Windows App` stops showing the untrusted-certificate dialog.
+The generated app lands at:
+
+- `dist/Path of Building.app`
+
+At runtime the app expands its mutable payload into:
+
+- `~/Library/Application Support/Path of Building/versions/<pob-tag>--<rusty-tag>/`
+- `~/Library/Application Support/Path of Building/current`
+- `~/Library/Application Support/Path of Building/userdata`
+
+Saved builds stay external:
+
+- `/Users/sergio/Documents/30_HOBBY_AI/POB-data/builds`
 
 ## Daily Use
 
-Bring the stack up:
+Launch the native app:
 
 ```bash
-./scripts/up.sh
+./scripts/mac-launch.sh
 ```
 
-By default the host starts an idle watcher too. If there is no active RDP client connected to `localhost:3389` for `20` minutes, it automatically runs `./scripts/down.sh` and frees the laptop.
+Or double-click:
 
-One-click macOS launcher from Terminal:
+- `POB.command`
+
+Rebuild the current native app bundle:
 
 ```bash
-./scripts/launch-pob.sh
+./scripts/mac-refresh.sh --force
 ```
 
-It brings the runner up, waits until `pob-flatpak-rdp` is `healthy`, then opens `Windows App` with a generated `.rdp` file for `localhost:3389`.
-
-Install a double-clickable Desktop shortcut:
+Run a structural smoke test:
 
 ```bash
-./scripts/install-macos-launcher.sh
+./scripts/mac-smoke-test.sh
 ```
 
-That creates `~/Desktop/POB.command`.
-
-Reissue the local RDP certificate if needed:
+Run a live launch smoke test:
 
 ```bash
-./scripts/setup-rdp-tls.sh --force
+./scripts/mac-smoke-test.sh --launch
 ```
 
-Stop it:
-
-```bash
-./scripts/down.sh
-```
-
-Tail logs:
-
-```bash
-./scripts/logs.sh
-```
-
-Open a debug shell in the builder image:
-
-```bash
-./scripts/flatpak-shell.sh
-```
-
-Open a debug shell in the runtime image:
-
-```bash
-./scripts/flatpak-shell.sh runner
-```
-
-## Upstream Patch Flow
-
-Pull the latest Flathub-side changes into the local manifest:
-
-```bash
-./scripts/flatpak-sync-upstream.sh latest
-```
-
-Build and export the local Flatpak repo:
-
-```bash
-./scripts/flatpak-build.sh
-```
-
-One-shot refresh with rebuild and runner recreate:
-
-```bash
-./scripts/flatpak-refresh.sh
-```
-
-Force rebuild even if the upstream snapshot did not change:
-
-```bash
-./scripts/flatpak-refresh.sh --force
-```
-
-Refresh without restarting the running RDP container:
-
-```bash
-./scripts/flatpak-refresh.sh --no-restart
-```
-
-## Weekly Rebuild Automation
+## Weekly Native Refresh Automation
 
 Install the local `launchd` job:
 
 ```bash
-./scripts/install-flatpak-refresh-agent.sh
+./scripts/install-mac-refresh-agent.sh
 ```
 
 Defaults:
 
 - weekday: `6` (`Saturday`)
 - time: `19:00` local time
-- action: check latest Flathub snapshot, sync local manifest, rebuild, and recreate the runner on success
+- action: check the latest official PoB release, resolve a compatible Rusty runtime, rebuild the native `.app`, and keep the previous bundle if any step fails
 
 Override the schedule before install if needed:
 
 ```bash
-POB_FLATPAK_REFRESH_WEEKDAY=0 POB_FLATPAK_REFRESH_HOUR=20 POB_FLATPAK_REFRESH_MINUTE=30 ./scripts/install-flatpak-refresh-agent.sh
+POB_MAC_REFRESH_WEEKDAY=0 POB_MAC_REFRESH_HOUR=20 POB_MAC_REFRESH_MINUTE=30 ./scripts/install-mac-refresh-agent.sh
 ```
 
 Remove the job:
 
 ```bash
-./scripts/uninstall-flatpak-refresh-agent.sh
+./scripts/uninstall-mac-refresh-agent.sh
 ```
 
 Logs:
 
-- repo log: `.state/logs/flatpak-refresh.log`
-- last applied upstream snapshot: `.state/flatpak-upstream-head`
-- last successful refresh timestamp: `.state/flatpak-upstream-last-refresh`
+- repo log: `.state/logs/mac-native-refresh.log`
+- current native mapping: `.state/macos/current-version.json`
+- last successful native refresh: `.state/macos/last-refresh`
+
+## Flatpak Fallback
+
+The old container path is still here as a fallback:
+
+- `./scripts/flatpak-sync-upstream.sh latest`
+- `./scripts/flatpak-build.sh`
+- `./scripts/up.sh`
+- `./scripts/down.sh`
+- `./scripts/logs.sh`
+
+That path stays useful for regression checks until native `.app` reaches full parity.
 
 ## Storage Layout
 
-- Repo-local Flatpak cache:
-  - `.cache/flatpak/upstream/`
-  - `.cache/flatpak/build/`
-  - `.cache/flatpak/repo/`
-  - `.cache/flatpak/state/`
+- Repo-local native cache:
+  - `.cache/macos/upstream/`
+  - `.cache/macos/downloads/`
+  - `.cache/macos/build/`
+- Repo-local native state:
+  - `.state/macos/current-version.json`
+  - `.state/macos/last-refresh`
+- Native app artifact:
+  - `dist/Path of Building.app`
 - Persistent host storage:
   - `/Users/sergio/Documents/30_HOBBY_AI/POB-data/builds`
-
-Inside the container, the build directory is mounted at `/data/builds`. The runtime links that directory into both `Path of Building*` and `RustyPathOfBuilding*` app-data roots so saved builds survive container recreation.
 
 ## Configuration
 
 Optional overrides can be provided via environment variables or a local `.env` file:
 
 ```bash
-POB_DOCKER_CONTEXT=orbstack
-POB_RDP_PASSWORD=changeme
-POB_RDP_PORT=3389
-POB_RDP_KEYLAYOUT=0x00000409
-POB_FLATPAK_BUILDER_IMAGE=pob-flatpak-builder:local
-POB_FLATPAK_RUNNER_IMAGE=pob-flatpak-runner:local
-POB_FLATPAK_RDP_PORT=3389
-POB_FLATPAK_APP_ID=community.pathofbuilding.PathOfBuilding
-POB_FLATPAK_GAME=poe1
-POB_FLATPAK_RUNTIME_VERSION=25.08
-POB_FLATPAK_UPSTREAM_SNAPSHOT=aa186a1606107b3f9035ea03d72c79e8ea24c885
-POB_FLATPAK_REFRESH_WEEKDAY=6
-POB_FLATPAK_REFRESH_HOUR=19
-POB_FLATPAK_REFRESH_MINUTE=0
-POB_IDLE_AUTO_DOWN=1
-POB_IDLE_TIMEOUT_MINUTES=20
-POB_IDLE_POLL_SECONDS=60
+POB_MAC_APP_NAME=Path of Building
+POB_MAC_APP_BUNDLE_ID=dev.sergio.pathofbuilding.local
+POB_MAC_GAME=poe1
+POB_MAC_SUPPORT_DIR=/Users/sergio/Library/Application Support/Path of Building
+POB_MAC_BUNDLE_PATH=/Users/sergio/Documents/30_HOBBY_AI/POB/dist/Path of Building.app
+POB_MAC_RUSTY_TAG=v0.2.16
+POB_MAC_REFRESH_WEEKDAY=6
+POB_MAC_REFRESH_HOUR=19
+POB_MAC_REFRESH_MINUTE=0
 POB_BUILDS_HOST_DIR=/Users/sergio/Documents/30_HOBBY_AI/POB-data/builds
 ```
 
@@ -211,10 +164,7 @@ See [.env.example](/Users/sergio/Documents/30_HOBBY_AI/POB/.env.example).
 
 ## Notes
 
-- `docker-compose.flatpak.yml` still uses a privileged runtime container because local Flatpak run inside Docker needs `bubblewrap` and related sandbox features.
-- The repo now splits Flatpak concerns into two images: a heavier builder and a leaner runtime. Repeated rebuilds should be cheaper when you avoid `--no-cache`.
-- `flatpak-sync-upstream.sh` regenerates the local manifest from the latest upstream Flathub manifest and removes the `extrafiles` packaging block that is not needed for this local runner.
-- `scripts/up.sh`, `scripts/down.sh`, and `scripts/logs.sh` now target the Flatpak stack only.
-- `flatpak-run.sh` and `up.sh` both default to `localhost:3389`; do not run another RDP stack on the same port at the same time.
-- Auto-down watches host-side TCP connections to `localhost:3389`, not mouse or keyboard events inside the session. If the RDP client disconnects and stays disconnected for the timeout window, the container is stopped.
-- The runtime starts `rusty-path-of-building` with `POB_FLATPAK_GAME=poe1` by default. Switch it to `poe2` if you want the PoE 2 asset set instead.
+- The native path rebuilds from upstream source snapshots and compatibility metadata; it does not translate the Windows binary.
+- `mac-launch.sh` will trigger a full native refresh automatically if the `.app` is missing.
+- The bundle launcher keeps user data outside the `.app` and only refreshes the versioned payload when the bundle version changes.
+- The flatpak path remains in the repo intentionally as a rollback option while the native path is hardened.

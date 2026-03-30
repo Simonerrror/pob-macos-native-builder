@@ -2,6 +2,9 @@
 .env
 .cache/flatpak/*
 !.cache/flatpak/.gitkeep
+.cache/macos/*
+!.cache/macos/.gitkeep
+dist/*
 flatpak/cargo-sources.json
 .state/*
 !.state/.gitkeep
