@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-AGENT_LABEL="dev.sergio.pob.mac-native-refresh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/mac-common.sh"
+
+AGENT_LABEL="${POB_MAC_REFRESH_AGENT_LABEL:-dev.local.pathofbuilding.mac-native-refresh}"
 AGENT_PATH="${HOME}/Library/LaunchAgents/${AGENT_LABEL}.plist"
 
 launchctl bootout "gui/$(id -u)" "$AGENT_PATH" >/dev/null 2>&1 || true

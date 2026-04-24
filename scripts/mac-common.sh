@@ -2,6 +2,14 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+if [[ -f "${REPO_ROOT}/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "${REPO_ROOT}/.env"
+  set +a
+fi
+
 CACHE_ROOT="${REPO_ROOT}/.cache/macos"
 UPSTREAM_ROOT="${CACHE_ROOT}/upstream"
 DOWNLOADS_ROOT="${CACHE_ROOT}/downloads"
@@ -14,10 +22,10 @@ LOG_DIR="${APP_STATE_ROOT}/logs"
 VERSION_METADATA_FILE="${MAC_STATE_ROOT}/current-version.json"
 LAST_REFRESH_FILE="${MAC_STATE_ROOT}/last-refresh"
 LOCK_DIR="${MAC_STATE_ROOT}/refresh.lock"
-DEFAULT_BUILD_DIR="/Users/sergio/Documents/30_HOBBY_AI/POB-data/builds"
+DEFAULT_BUILD_DIR="${HOME}/Documents/Path of Building/Builds"
 
 POB_MAC_APP_NAME="${POB_MAC_APP_NAME:-Path of Building}"
-POB_MAC_APP_BUNDLE_ID="${POB_MAC_APP_BUNDLE_ID:-dev.sergio.pathofbuilding.local}"
+POB_MAC_APP_BUNDLE_ID="${POB_MAC_APP_BUNDLE_ID:-dev.local.pathofbuilding.macos}"
 POB_MAC_GAME="${POB_MAC_GAME:-poe1}"
 POB_MAC_SUPPORT_DIR="${POB_MAC_SUPPORT_DIR:-${HOME}/Library/Application Support/Path of Building}"
 POB_MAC_BUNDLE_PATH="${POB_MAC_BUNDLE_PATH:-${DIST_ROOT}/${POB_MAC_APP_NAME}.app}"

@@ -54,7 +54,28 @@ mkdir -p "$payload_dir"
 log "Staging PoB sources into payload"
 rsync -a --delete "${pob_source_dir}/src/" "${payload_dir}/"
 rsync -a --delete "${rusty_source_dir}/lua/" "${payload_dir}/lua/"
-mkdir -p "${payload_dir}/lib/lua/5.1"
+mkdir -p "${payload_dir}/lib/lua/5.1" "${payload_dir}/share/lua/5.1"
+rsync -a "${pob_source_dir}/runtime/lua/" "${payload_dir}/share/lua/5.1/"
+
+for root_asset in changelog.txt help.txt LICENSE.md manifest.xml; do
+  cp "${pob_source_dir}/${root_asset}" "${payload_dir}/${root_asset}"
+done
+
+python3 - "${payload_dir}/manifest.xml" <<'PY'
+from pathlib import Path
+import sys
+import xml.etree.ElementTree as ET
+
+manifest_path = Path(sys.argv[1])
+tree = ET.parse(manifest_path)
+root = tree.getroot()
+version = root.find("Version")
+if version is None:
+    raise SystemExit("manifest.xml missing Version node")
+version.attrib["branch"] = "master"
+version.attrib["platform"] = "macos"
+tree.write(manifest_path, encoding="UTF-8", xml_declaration=True)
+PY
 
 luajit_root="$(luajit_prefix)"
 if [[ -f "${HOME}/.cargo/env" ]]; then

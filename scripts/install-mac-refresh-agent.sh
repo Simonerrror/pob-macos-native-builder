@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/mac-common.sh"
+
 AGENT_DIR="${HOME}/Library/LaunchAgents"
-AGENT_LABEL="dev.sergio.pob.mac-native-refresh"
+AGENT_LABEL="${POB_MAC_REFRESH_AGENT_LABEL:-dev.local.pathofbuilding.mac-native-refresh}"
 AGENT_PATH="${AGENT_DIR}/${AGENT_LABEL}.plist"
 LOG_DIR="${REPO_ROOT}/.state/logs"
 WEEKDAY="${POB_MAC_REFRESH_WEEKDAY:-6}"

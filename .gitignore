@@ -1,5 +1,6 @@
 .DS_Store
 .env
+AGENTS.md
 .cache/macos/*
 !.cache/macos/.gitkeep
 dist/*

@@ -37,6 +37,32 @@ cp "${runtime_dir}/bin/rusty-path-of-building" "${runtime_bin_dir}/"
 cp "${runtime_dir}/version.json" "${metadata_target_dir}/version.json"
 chmod 755 "${runtime_bin_dir}/rusty-path-of-building"
 
+python3 - "${payload_target_dir}" "${metadata_target_dir}/version.json" "${metadata_target_dir}/bundle-sync-stamp" <<'PY'
+from hashlib import sha256
+from pathlib import Path
+import sys
+
+payload_dir = Path(sys.argv[1])
+metadata_file = Path(sys.argv[2])
+output_file = Path(sys.argv[3])
+digest = sha256()
+
+for path in sorted(payload_dir.rglob("*")):
+    rel = path.relative_to(payload_dir).as_posix()
+    digest.update(rel.encode("utf-8"))
+    if path.is_symlink():
+        digest.update(b"link\0")
+        digest.update(path.readlink().as_posix().encode("utf-8"))
+    elif path.is_file():
+        digest.update(b"file\0")
+        digest.update(path.read_bytes())
+    else:
+        digest.update(b"dir\0")
+
+digest.update(metadata_file.read_bytes())
+output_file.write_text(digest.hexdigest(), encoding="utf-8")
+PY
+
 bundle_deps() {
   local file="$1"
   local dep dep_name copied install_ref
