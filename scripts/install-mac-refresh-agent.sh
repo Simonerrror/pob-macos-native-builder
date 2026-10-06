@@ -27,7 +27,7 @@ cat >"$AGENT_PATH" <<EOF
   <array>
     <string>/bin/zsh</string>
     <string>-lc</string>
-    <string>export PATH="${PATH_VALUE}"; exec "${REPO_ROOT}/scripts/mac-refresh.sh"</string>
+    <string>export PATH="${PATH_VALUE}"; exec "${REPO_ROOT}/scripts/mac-refresh-primary.sh"</string>
   </array>
   <key>EnvironmentVariables</key>
   <dict>

@@ -3,8 +3,6 @@ set -euo pipefail
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/mac-common.sh"
 
-ensure_metadata_exists
-
 launch_smoke=0
 while [[ $# -gt 0 ]]; do
   case "$1" in

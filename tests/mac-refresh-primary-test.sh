@@ -76,21 +76,6 @@ esac
 SH
   chmod +x "$root/bin/curl"
 
-  cat > "$root/bin/jq" <<'SH'
-#!/usr/bin/env python3
-import json
-import sys
-
-query = sys.argv[-1]
-payload = json.load(sys.stdin)
-if query == ".tag_name":
-    value = payload["tag_name"]
-else:
-    raise SystemExit(f"unsupported test jq query: {query}")
-print(value)
-SH
-  chmod +x "$root/bin/jq"
-
   cat > "$root/tests/fake-bundle.py" <<'PY'
 #!/usr/bin/env python3
 import json
@@ -298,7 +283,6 @@ run_primary() {
     export POB_MAC_POB_REPO=PathOfBuildingCommunity/PathOfBuilding
     export POB_MAC_RUSTY_REPO=meehl/rusty-path-of-building
     export POB_MAC_COMPAT_REPO=meehl/rusty-pob-manifest
-    export POB_MAC_RUSTY_TAG=""
     export POB_MAC_APP_NAME="Path of Building"
     export POB_BUILDS_HOST_DIR="$root/host-builds"
     export POB_MAC_SUPPORT_DIR="$root/smoke-support/Path of Building"

@@ -18,7 +18,7 @@ runtime_dir="$(native_runtime_dir "$version_id")"
 downloads_vendor_dir="${DOWNLOADS_ROOT}/vendor"
 
 if [[ ! -d "$rusty_source_dir" || ! -d "$pob_source_dir" ]]; then
-  printf 'Missing upstream sources for %s / %s\nRun ./scripts/mac-sync-upstream.sh latest first.\n' "$pob_tag" "$rusty_tag" >&2
+  printf 'Missing upstream sources for %s / %s\nRun ./scripts/mac-refresh-primary.sh to prepare and build current releases.\n' "$pob_tag" "$rusty_tag" >&2
   exit 1
 fi
 
@@ -89,31 +89,6 @@ export LUAJIT_INCLUDE_DIR="${luajit_root}/include/luajit-2.1"
 export CARGO_HTTP_TIMEOUT="${CARGO_HTTP_TIMEOUT:-600}"
 export CARGO_NET_RETRY="${CARGO_NET_RETRY:-10}"
 export CARGO_REGISTRIES_CRATES_IO_PROTOCOL="${CARGO_REGISTRIES_CRATES_IO_PROTOCOL:-sparse}"
-
-log "Applying local macOS cargo patch set"
-python3 - "${rusty_source_dir}/Cargo.toml" "${rusty_source_dir}/src/clipboard.rs" <<'PY'
-from pathlib import Path
-import sys
-
-manifest = Path(sys.argv[1])
-clipboard = Path(sys.argv[2])
-
-text = manifest.read_text(encoding="utf-8")
-old = "[target.'cfg(unix)'.dependencies]"
-new = "[target.'cfg(all(unix, not(target_os = \"macos\")))'.dependencies]"
-wgpu_old = 'wgpu = { version = "27.0.1", default-features = false, features = ["std", "parking_lot", "vulkan", "wgsl"] }'
-wgpu_new = 'wgpu = { version = "27.0.1", default-features = false, features = ["std", "parking_lot", "vulkan", "metal", "wgsl"] }'
-
-if old in text and new not in text:
-    text = text.replace(old, new, 1)
-if wgpu_old in text and wgpu_new not in text:
-    text = text.replace(wgpu_old, wgpu_new, 1)
-    manifest.write_text(text, encoding="utf-8")
-
-text = clipboard.read_text(encoding="utf-8")
-text = text.replace('#[cfg(target_family = "unix")]', '#[cfg(all(target_family = "unix", not(target_os = "macos")))]')
-clipboard.write_text(text, encoding="utf-8")
-PY
 
 log "Applying local macOS payload patch set"
 python3 - "${payload_dir}/Launch.lua" "${payload_dir}/Modules/Main.lua" <<'PY'

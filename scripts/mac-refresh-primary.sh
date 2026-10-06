@@ -10,21 +10,6 @@ fail() {
   exit 1
 }
 
-json_field() {
-  local json="$1"
-  local field="$2"
-  python3 - "$json" "$field" <<'PY'
-import json
-import sys
-
-payload = json.loads(sys.argv[1])
-value = payload[sys.argv[2]]
-if value is None:
-    raise SystemExit(f"Release metadata has no {sys.argv[2]}")
-print(value)
-PY
-}
-
 verify_final_release() {
   local json="$1"
   local expected_tag="$2"
@@ -49,8 +34,7 @@ PY
 select_compatible_rusty_tag() {
   local minimum_version="$1"
   local releases_json="$2"
-  local requested_tag="${3:-}"
-  python3 - "$minimum_version" "$releases_json" "$requested_tag" <<'PY'
+  python3 - "$minimum_version" "$releases_json" <<'PY'
 import json
 import re
 import sys
@@ -67,7 +51,6 @@ except ValueError:
     raise SystemExit(f"Invalid minimum Rusty version: {sys.argv[1]}")
 
 releases = json.loads(sys.argv[2])
-requested_tag = sys.argv[3]
 best = None
 for release in releases:
     tag = release.get("tag_name") or ""
@@ -81,16 +64,9 @@ for release in releases:
         continue
     if version < minimum:
         continue
-    if requested_tag:
-        if tag == requested_tag:
-            print(tag)
-            raise SystemExit(0)
-        continue
     if best is None or version > best[0]:
         best = (version, tag)
 
-if requested_tag:
-    raise SystemExit(f"Configured Rusty release {requested_tag} is not a final compatible release")
 if best is None:
     raise SystemExit(f"No final Rusty release satisfies minimum {sys.argv[1]}")
 print(best[1])
@@ -423,9 +399,17 @@ finish() {
   exit "$status"
 }
 
+force=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --force) force=1 ;;
+    *) fail "Usage: $0 [--force]" ;;
+  esac
+  shift
+done
+
 ensure_mac_dirs
 require_cmd curl
-require_cmd jq
 require_cmd git
 require_cmd python3
 
@@ -479,7 +463,7 @@ minimum_rusty="$(minimum_rusty_version_for_pob "$pob_version" "$(compat_file_pat
 if ! rusty_releases_json="$(github_api "https://api.github.com/repos/${POB_MAC_RUSTY_REPO}/releases?per_page=100")"; then
   fail "Upstream-access/bootstrap blocker: unable to read Rusty release metadata"
 fi
-if ! rusty_tag="$(select_compatible_rusty_tag "$minimum_rusty" "$rusty_releases_json" "${POB_MAC_RUSTY_TAG:-}")"; then
+if ! rusty_tag="$(select_compatible_rusty_tag "$minimum_rusty" "$rusty_releases_json")"; then
   fail "Upstream release metadata has no final Rusty release satisfying ${minimum_rusty}"
 fi
 if ! rusty_release_json="$(github_api "https://api.github.com/repos/${POB_MAC_RUSTY_REPO}/releases/tags/${rusty_tag}")"; then
@@ -502,7 +486,7 @@ pob_commit="$(peeled_commit_for_tag "$POB_MIRROR" "$pob_tag" "Path of Building")
 rusty_commit="$(peeled_commit_for_tag "$RUSTY_MIRROR" "$rusty_tag" "Rusty")"
 log "Resolved final releases: PoB ${pob_tag} (${pob_commit}); Rusty ${rusty_tag} (${rusty_commit})"
 
-if current_release_is_installed \
+if [[ "$force" -eq 0 ]] && current_release_is_installed \
   "$pob_tag" "$pob_version" "$pob_commit" \
   "$rusty_tag" "$rusty_version" "$rusty_commit"; then
   log "Official releases are unchanged; verifying the installed canonical bundle without rebuilding"

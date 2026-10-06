@@ -47,7 +47,7 @@ payload = {
     "game": "poe1",
     "version_id": "v9.9.9--v0.0.1",
     "pob": {"tag": "v9.9.9", "version": "9.9.9"},
-    "rusty": {"tag": "v0.0.1"},
+    "rusty": {"tag": "v0.0.1", "version": "0.0.1"},
     "app": {"support_dir": ""},
 }
 
@@ -129,6 +129,32 @@ sleep 60
   [[ "$status" -ne 0 ]] || fail "launch smoke accepted stale bundle stamp"
 }
 
+test_bundle_launcher_without_python() {
+  local tmp bundle support
+  tmp="$(mktemp -d)"
+  trap 'rm -rf "$tmp"' RETURN
+  bundle="${tmp}/Path of Building.app"
+  support="${tmp}/isolated/Path of Building"
+  make_bundle "$bundle" 'exit 1'
+  cp "$REPO_ROOT/macos/launcher.sh" "$bundle/Contents/MacOS/Path of Building"
+  mkdir -p "$tmp/bin" "$tmp/builds"
+  printf '%s\n' '#!/bin/bash' 'exit 99' > "$tmp/bin/python3"
+  chmod +x "$tmp/bin/python3"
+  printf '%s\n' '#!/bin/bash' 'printf "%s\n" "$1" > "$POB_MAC_TEST_LOG"' \
+    > "$bundle/Contents/Resources/runtime/bin/rusty-path-of-building"
+
+  PATH="$tmp/bin:/usr/bin:/bin:/usr/sbin:/sbin" \
+  POB_MAC_SUPPORT_DIR="$support" \
+  POB_BUILDS_HOST_DIR="$tmp/builds" \
+  POB_MAC_TEST_LOG="$tmp/runtime.log" \
+    bash "$bundle/Contents/MacOS/Path of Building"
+
+  [[ "$(cat "$tmp/runtime.log")" == poe1 ]] || fail "launcher did not start the selected game"
+  [[ "$(cat "$support/versions/v9.9.9--v0.0.1/.bundle-version")" == expected-stamp ]] || fail "launcher did not materialize the payload"
+  [[ "$(readlink "$support/userdata/Builds")" == "$tmp/builds" ]] || fail "launcher did not preserve the configured builds path"
+}
+
+test_bundle_launcher_without_python
 test_launch_smoke_uses_support_override
 test_launch_smoke_rejects_stale_bundle_stamp
 

@@ -11,7 +11,7 @@ stage_dir="$(native_stage_dir "$version_id")"
 runtime_dir="$(native_runtime_dir "$version_id")"
 
 if [[ ! -d "${stage_dir}/payload/current" || ! -x "${runtime_dir}/bin/rusty-path-of-building" ]]; then
-  printf 'Missing native build artifacts for %s\nRun ./scripts/mac-build.sh first.\n' "$version_id" >&2
+  printf 'Missing native build artifacts for %s\nRun ./scripts/mac-refresh-primary.sh to rebuild the app.\n' "$version_id" >&2
   exit 1
 fi
 
@@ -114,11 +114,37 @@ chmod 755 "${tmp_bundle}/Contents/MacOS/${POB_MAC_APP_NAME}"
 python3 - "$POB_MAC_APP_NAME" "$POB_MAC_APP_BUNDLE_ID" "$tmp_bundle/Contents/Info.plist" "${metadata_target_dir}/version.json" <<'PY'
 import json
 import plistlib
+import re
+import subprocess
 import sys
+from pathlib import Path
 
 app_name, bundle_id, output, metadata_path = sys.argv[1:]
 with open(metadata_path, "r", encoding="utf-8") as handle:
     version_json = json.load(handle)
+
+resources = Path(output).parent / "Resources"
+native_files = [resources / "runtime/bin/rusty-path-of-building"]
+native_files += sorted(resources.rglob("*.dylib"))
+native_files += sorted(resources.rglob("*.so"))
+minimum_versions = []
+for native_file in native_files:
+    commands = subprocess.check_output(["/usr/bin/otool", "-l", str(native_file)], text=True)
+    versions = []
+    for command in re.split(r"(?m)^Load command \d+\n", commands):
+        if re.search(r"(?m)^\s*cmd LC_BUILD_VERSION\s*$", command):
+            match = re.search(r"(?m)^\s*minos (\d+(?:\.\d+){1,2})\s*$", command)
+        elif re.search(r"(?m)^\s*cmd LC_VERSION_MIN_MACOSX\s*$", command):
+            match = re.search(r"(?m)^\s*version (\d+(?:\.\d+){1,2})\s*$", command)
+        else:
+            continue
+        if match:
+            versions.append(match.group(1))
+    if not versions:
+        raise SystemExit(f"Cannot determine macOS deployment target: {native_file}")
+    minimum_versions.extend(versions)
+
+minimum_system_version = max(minimum_versions, key=lambda version: tuple(map(int, version.split("."))))
 
 payload = {
     "CFBundleDevelopmentRegion": "en",
@@ -131,7 +157,7 @@ payload = {
     "CFBundlePackageType": "APPL",
     "CFBundleShortVersionString": version_json["pob"]["version"],
     "CFBundleVersion": version_json["version_id"],
-    "LSMinimumSystemVersion": "14.0",
+    "LSMinimumSystemVersion": minimum_system_version,
     "NSHighResolutionCapable": True,
 }
 

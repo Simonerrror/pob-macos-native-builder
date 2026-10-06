@@ -14,7 +14,6 @@ CACHE_ROOT="${REPO_ROOT}/.cache/macos"
 UPSTREAM_ROOT="${CACHE_ROOT}/upstream"
 DOWNLOADS_ROOT="${CACHE_ROOT}/downloads"
 BUILD_ROOT="${CACHE_ROOT}/build"
-TOOLS_ROOT="${CACHE_ROOT}/tools"
 DIST_ROOT="${REPO_ROOT}/dist"
 APP_STATE_ROOT="${REPO_ROOT}/.state"
 MAC_STATE_ROOT="${APP_STATE_ROOT}/macos"
@@ -62,7 +61,6 @@ ensure_mac_dirs() {
     "$UPSTREAM_ROOT" \
     "$DOWNLOADS_ROOT" \
     "$BUILD_ROOT" \
-    "$TOOLS_ROOT" \
     "$DIST_ROOT" \
     "$MAC_STATE_ROOT" \
     "$LOG_DIR" \
@@ -85,8 +83,14 @@ github_api() {
     "$url"
 }
 
+json_field() {
+  printf '%s' "$1" | /usr/bin/plutil -extract "$2" raw -expect string -o - -
+}
+
 latest_pob_tag() {
-  github_api "https://api.github.com/repos/$(game_repo)/releases/latest" | jq -r '.tag_name'
+  local release_json
+  release_json="$(github_api "https://api.github.com/repos/$(game_repo)/releases/latest")" || return
+  json_field "$release_json" tag_name
 }
 
 resolve_pob_tag() {
@@ -230,11 +234,6 @@ resolve_rusty_tag() {
   local minimum_version="$1"
   local releases_json
 
-  if [[ -n "${POB_MAC_RUSTY_TAG:-}" ]]; then
-    printf '%s\n' "$POB_MAC_RUSTY_TAG"
-    return 0
-  fi
-
   releases_json="$(github_api "https://api.github.com/repos/${POB_MAC_RUSTY_REPO}/releases?per_page=100")"
 
   python3 - "$minimum_version" "$releases_json" <<'PY'
@@ -251,6 +250,8 @@ best_tag = None
 best_version = None
 
 for release in releases:
+    if release.get("draft") is not False or release.get("prerelease") is not False:
+      continue
     tag = release.get("tag_name") or ""
     if not re.match(r"^v\d+\.\d+\.\d+$", tag):
       continue
@@ -284,12 +285,12 @@ native_runtime_dir() {
 
 metadata_value() {
   local query="$1"
-  jq -r "$query" "$VERSION_METADATA_FILE"
+  /usr/bin/plutil -extract "${query#.}" raw -expect string -o - "$VERSION_METADATA_FILE"
 }
 
 ensure_metadata_exists() {
   if [[ ! -f "$VERSION_METADATA_FILE" ]]; then
-    printf 'Missing native metadata at %s\nRun ./scripts/mac-sync-upstream.sh latest first.\n' "$VERSION_METADATA_FILE" >&2
+    printf 'Missing native metadata at %s\nRun ./scripts/mac-refresh-primary.sh to prepare and build current releases.\n' "$VERSION_METADATA_FILE" >&2
     exit 1
   fi
 }
@@ -368,7 +369,6 @@ PY
 
 ensure_host_build_dependencies() {
   require_cmd brew
-  require_cmd jq
   require_cmd python3
   require_cmd cargo
   require_cmd rustc

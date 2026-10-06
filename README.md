@@ -1,218 +1,160 @@
 # Path of Building macOS Native Build Conveyor
 
-Unofficial source-only macOS build pipeline for running
-[Path of Building Community](https://github.com/PathOfBuildingCommunity/PathOfBuilding)
-with the [Rusty Path of Building](https://github.com/meehl/rusty-path-of-building)
-runtime on Apple Silicon.
+Source-only instructions and scripts for building a local Apple Silicon `.app`
+from [Path of Building Community](https://github.com/PathOfBuildingCommunity/PathOfBuilding)
+and [Rusty Path of Building](https://github.com/meehl/rusty-path-of-building).
 
-This repository does not publish a ready-made `.app`. It publishes the recipe and
-checks that let each user build, sign, and run their own local app bundle.
+Each refresh resolves the latest official stable PoB release and the latest
+stable Rusty release satisfying its upstream compatibility manifest. The
+resolved tags and commits are recorded for that run; later refreshes discover
+new releases. An older calculator is not a successful substitute for an
+incompatible current release.
 
 ## Give This To Your Agent
 
-Paste this into Codex, Claude Code, or another local coding agent from a fresh
-clone on an Apple Silicon Mac:
+Paste this into your local coding agent from a clone on an Apple Silicon Mac:
 
 ```text
-Build Path of Building for macOS from this repository.
+Build or update native Path of Building for macOS from this checkout.
+
+Use ./scripts/mac-refresh-primary.sh as the installation and update process.
+It resolves current official stable PoB and Rusty releases, builds a candidate,
+checks it, and promotes it with rollback if final verification fails.
 
 Requirements:
-- Do not download or trust a prebuilt macOS app bundle.
-- Use the repository scripts to sync upstream source, build the native runtime,
-  assemble the local app bundle, and run both smoke tests.
-- Keep generated artifacts local: dist/, .cache/, .state/, and .env must not be
-  committed.
-- If a dependency, upstream tag, or signing choice is unclear, stop and report
-  exact versions/commands instead of guessing.
+- Use the latest official stable upstream releases for the selected game.
+  Do not pin an older PoB or Rusty release to make a failed update look successful.
+- Prepare only missing build prerequisites, following the user's dependency policy.
+- Build from source. Do not download a prebuilt macOS app.
+- Preserve existing builds, settings, the installed app on failure, and reusable caches.
+- Keep dist/, .cache/, .state/, .env and local AGENTS.md out of Git.
+- If network access, compatibility, build or smoke verification fails, report the
+  exact blocker. Repair source or scripts when possible and retry the same process.
+  Do not repair the installed .app in place or silently fall back to older releases.
+- Install a scheduled refresh job or Desktop launcher only when requested.
 
 Run:
-./scripts/mac-sync-upstream.sh latest
-./scripts/mac-build.sh
-./scripts/mac-bundle.sh
-./scripts/mac-smoke-test.sh
-./scripts/mac-smoke-test.sh --launch
+./scripts/mac-refresh-primary.sh
 
-Then report the final bundle path, PoB version, Rusty PoB version, and whether
-the launched app materialized the same bundle-sync-stamp as the bundle metadata.
+Report the final bundle path, selected game, PoB and Rusty tags and commits,
+the bundle's macOS minimum, and the static and launch smoke results.
 ```
 
-The final local bundle is:
+The local bundle is `dist/Path of Building.app`. PoE 1 is the default game.
+Set `POB_MAC_GAME=poe2` to select the PoE 2 upstream and compatibility manifest.
 
-- `dist/Path of Building.app`
+## Requirements
 
-## What This Is
+Use an Apple Silicon Mac with Xcode command line tools, Homebrew, Rust/Cargo
+(preferably via `rustup`), and Python 3. The build also uses `luajit`, `pkgconf`
+and `luarocks`; the build script installs missing Homebrew formulae. The agent
+must review missing dependencies under the user's applicable policy before
+running the build.
 
-The official Path of Building Community project ships downloads from its
-[Releases](https://github.com/PathOfBuildingCommunity/PathOfBuilding/releases)
-page and official website. This repo is not a fork of that app, not an upstream
-replacement, and not a binary distribution channel.
+Python is used during source preparation, compilation and verification. The
+bundled launcher reads metadata with the system `plutil` and does not require
+Python to start the app. `jq` is not required.
 
-It is a small macOS conveyor that:
+There is no independently imposed macOS version floor. Each new bundle derives
+`LSMinimumSystemVersion` from the deployment targets of its Rusty executable
+and required native libraries/modules. The chosen upstream release and local
+toolchain determine those targets; do not infer support for older macOS from
+the Rusty version alone.
 
-- resolves an official PoB release tag
-- resolves a compatible Rusty PoB release
-- builds the Rust runtime locally
-- stages the upstream Lua/assets payload from source snapshots
-- assembles a local `.app` bundle
-- materializes mutable runtime data outside the app bundle
-- disables PoB's in-app update path in favor of repeatable local rebuilds
+## Build, Update And Launch
 
-## Why Source-Only
-
-macOS app bundles carry local trust decisions: code signing identity,
-Gatekeeper/quarantine state, notarization choices, and bundled native libraries.
-Those decisions should happen on the user's machine, not be hidden inside a
-random uploaded zip.
-
-For that reason:
-
-- `dist/Path of Building.app` is ignored
-- `.cache/` and `.state/` are ignored
-- release uploads should contain source or notes only, not a prebuilt app
-- users who want distribution signing should use their own Apple Developer ID
-
-The default bundle step uses ad-hoc signing only, enough for local execution and
-smoke testing.
-
-## Manual Build
-
-Install host tools first:
-
-- Xcode command line tools
-- Homebrew
-- Rust via `rustup`
-
-Then run:
+Build or check for current upstream releases:
 
 ```bash
-./scripts/mac-sync-upstream.sh latest
-./scripts/mac-build.sh
-./scripts/mac-bundle.sh
-./scripts/mac-smoke-test.sh
-./scripts/mac-smoke-test.sh --launch
+./scripts/mac-refresh-primary.sh
 ```
 
-Launch the app:
+The process uses persistent Git mirrors, resolves release tags to commits, and
+builds in a temporary workspace. It runs static and launch smoke checks on the
+candidate and installed bundle. If verification fails, it preserves or restores
+the previous app and version metadata and exits with an error. A network or
+compatibility failure is reported as a blocker, not as a successful refresh.
+
+When releases are unchanged, it verifies the installed bundle without rebuilding.
+To rebuild the current upstream releases:
+
+```bash
+./scripts/mac-refresh-primary.sh --force
+```
+
+Launch the local app:
 
 ```bash
 ./scripts/mac-launch.sh
 ```
 
-If the `.app` is missing, `mac-launch.sh` triggers a full native refresh.
+If the app is missing, the launcher runs the primary process first. PoB's in-app
+update path is disabled; use the primary process to update the native bundle.
 
-## What This Repo Owns
+## Runtime Data
 
-- `scripts/mac-sync-upstream.sh`: resolve and cache upstream source snapshots
-- `scripts/mac-build.sh`: build Rusty PoB and stage the PoB payload
-- `scripts/mac-bundle.sh`: assemble `dist/Path of Building.app`
-- `scripts/mac-smoke-test.sh`: validate bundle structure and live launch state
-- `scripts/mac-refresh.sh`: sync, build, bundle, and smoke test in one command
-- `scripts/install-mac-refresh-agent.sh`: install a local `launchd` refresh job
-- `scripts/uninstall-mac-refresh-agent.sh`: remove that refresh job
-- `scripts/install-macos-launcher.sh`: install a Desktop launcher
-- `macos/launcher.sh`: materialize the payload into app support and start Rusty PoB
-
-## Runtime Layout
-
-At runtime the launcher expands the immutable bundle payload into app support:
+The launcher materializes the bundle payload outside the app:
 
 - `~/Library/Application Support/Path of Building/versions/<pob-tag>--<rusty-tag>/`
 - `~/Library/Application Support/Path of Building/current`
 - `~/Library/Application Support/Path of Building/userdata`
-- `~/Library/Application Support/RustyPathOfBuilding1/`
+- `~/Library/Application Support/RustyPathOfBuilding1/` (or `RustyPathOfBuilding2/`)
 
-Saved builds default to:
+Builds default to `~/Documents/Path of Building/Builds`. Set `POB_BUILDS_HOST_DIR`
+to use an existing builds directory. User data remains separate from rebuilt apps.
 
-- `~/Documents/Path of Building/Builds`
+## Configuration And Optional Automation
 
-Override this with `POB_BUILDS_HOST_DIR` if you already keep builds elsewhere.
+Export overrides or put them in a local, ignored `.env`. See [.env.example](.env.example).
+Do not pin upstream release versions in configuration.
 
-## Configuration
-
-Optional overrides can be exported in the shell or placed in a local `.env`
-file. The `.env` file is ignored by git and loaded by the scripts before
-defaults are applied.
-
-```bash
-POB_MAC_APP_NAME="Path of Building"
-POB_MAC_APP_BUNDLE_ID=dev.local.pathofbuilding.macos
-POB_MAC_GAME=poe1
-POB_MAC_SUPPORT_DIR="$HOME/Library/Application Support/Path of Building"
-POB_MAC_BUNDLE_PATH="$PWD/dist/Path of Building.app"
-POB_MAC_RUSTY_TAG=v0.2.16
-POB_MAC_REFRESH_WEEKDAY=6
-POB_MAC_REFRESH_HOUR=19
-POB_MAC_REFRESH_MINUTE=0
-POB_MAC_REFRESH_AGENT_LABEL=dev.local.pathofbuilding.mac-native-refresh
-POB_BUILDS_HOST_DIR="$HOME/Documents/Path of Building/Builds"
-```
-
-See [.env.example](.env.example).
-
-## Refresh Automation
-
-Install the local weekly `launchd` job:
+Install a weekly `launchd` refresh job when requested:
 
 ```bash
 ./scripts/install-mac-refresh-agent.sh
 ```
 
-Defaults:
-
-- weekday: `6` (`Saturday`)
-- time: `19:00` local time
-- action: check latest official PoB release, resolve compatible Rusty PoB,
-  rebuild the local `.app`, then keep the previous bundle if any step fails
-
-Override the schedule before install:
-
-```bash
-POB_MAC_REFRESH_WEEKDAY=0 POB_MAC_REFRESH_HOUR=20 POB_MAC_REFRESH_MINUTE=30 ./scripts/install-mac-refresh-agent.sh
-```
-
-Remove the job:
+The job runs the primary process on Saturday at 19:00 local time. Override
+`POB_MAC_REFRESH_WEEKDAY`, `POB_MAC_REFRESH_HOUR` and `POB_MAC_REFRESH_MINUTE`
+before installation to change the schedule. Remove it with:
 
 ```bash
 ./scripts/uninstall-mac-refresh-agent.sh
 ```
 
-## Publishing Checklist
+## Source Distribution And Checks
 
-Before pushing this repository:
+Distribute this repository and the instructions. The `.app` is built and
+ad-hoc signed on the recipient's Mac. Generated apps and caches stay local.
+
+Check script behavior without building or opening the real app:
 
 ```bash
-git status --short --ignored
+bash tests/mac-smoke-test-launch.sh
+bash tests/mac-refresh-primary-test.sh
+```
+
+Check an existing local bundle:
+
+```bash
 ./scripts/mac-smoke-test.sh
 ./scripts/mac-smoke-test.sh --launch
 ```
 
-Check that no generated files are staged:
-
-- no `dist/`
-- no `.cache/`
-- no `.state/`
-- no `.env`
-- no local `AGENTS.md`
-
-GitHub Releases, if used, should describe the tested upstream versions and
-build procedure. They should not attach `Path of Building.app.zip`.
+Before publishing source changes, check `git status --short --ignored` and
+exclude `dist/`, `.cache/`, `.state/`, `.env` and local `AGENTS.md`.
 
 ## Upstream And Related Work
 
 - [Path of Building Community](https://github.com/PathOfBuildingCommunity/PathOfBuilding):
-  official community-maintained PoB source and releases.
-- [Path of Building Community website](https://pathofbuilding.community/):
-  official download and project landing page.
+  calculator source, game data and releases.
 - [Rusty Path of Building](https://github.com/meehl/rusty-path-of-building):
-  Rust runtime used here. Its primary goal is native Linux support, with
-  cross-platform runtime architecture.
-- [PoBFrontend](https://github.com/hsource/pobfrontend):
-  older cross-platform driver with macOS build notes.
-- [AUR rusty-path-of-building](https://aur.archlinux.org/packages/rusty-path-of-building):
-  Linux packaging example for Rusty PoB.
+  native runtime; macOS support is included upstream.
+- [Rusty's Homebrew tap](https://github.com/meehl/homebrew-rusty-path-of-building):
+  installs the command-line runtime and Lua modules; it does not create a `.app`.
 
 ## License
 
 This repository's scripts and documentation are MIT licensed. Upstream Path of
-Building Community, Rusty Path of Building, Lua libraries, and bundled native
-dependencies remain under their own licenses.
+Building Community, Rusty Path of Building, Lua libraries, and native dependencies
+remain under their own licenses.

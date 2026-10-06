@@ -25,7 +25,7 @@ done
 ensure_mac_dirs
 
 if [[ "$force_refresh" -eq 1 || ! -d "$POB_MAC_BUNDLE_PATH" ]]; then
-  "${REPO_ROOT}/scripts/mac-refresh.sh" --force
+  "${REPO_ROOT}/scripts/mac-refresh-primary.sh" --force
 fi
 
 if [[ "$open_app" -eq 1 ]]; then

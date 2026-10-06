@@ -13,27 +13,10 @@ APP_SUPPORT_ROOT="${POB_MAC_SUPPORT_DIR:-${HOME}/Library/Application Support/Pat
 BUILDS_DIR="${POB_BUILDS_HOST_DIR:-${HOME}/Documents/Path of Building/Builds}"
 BASE_APP_SUPPORT_DIR="$(dirname "$APP_SUPPORT_ROOT")"
 
-read_metadata() {
-  python3 - "$METADATA_FILE" <<'PY'
-import json
-import sys
-
-with open(sys.argv[1], "r", encoding="utf-8") as handle:
-    payload = json.load(handle)
-
-print(payload["version_id"])
-print(payload["game"])
-print(payload["rusty"]["version"])
-PY
-}
-
-metadata_values=()
-while IFS= read -r line; do
-  metadata_values+=("$line")
-done < <(read_metadata)
-VERSION_ID="${metadata_values[0]}"
-GAME="${POB_MAC_GAME:-${metadata_values[1]}}"
-RUSTY_VERSION="${metadata_values[2]}"
+VERSION_ID="$(/usr/bin/plutil -extract version_id raw -expect string -o - "$METADATA_FILE")"
+METADATA_GAME="$(/usr/bin/plutil -extract game raw -expect string -o - "$METADATA_FILE")"
+GAME="${POB_MAC_GAME:-$METADATA_GAME}"
+RUSTY_VERSION="$(/usr/bin/plutil -extract rusty.version raw -expect string -o - "$METADATA_FILE")"
 BUNDLE_STAMP="$VERSION_ID"
 
 if [[ -f "$SYNC_STAMP_FILE" ]]; then
